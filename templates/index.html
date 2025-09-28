@@ -274,14 +274,14 @@
         <p class="subtitle">Create beautiful slideshow videos from your images</p>
 
         <!-- Image Upload Section -->
-        <div class="upload-area" id="imageUploadArea">
+        <div class="upload-area" id="imageUploadArea" onclick="selectImages()">
             <div class="upload-icon">📸</div>
             <p>Drag & drop images here or click to browse</p>
-            <button type="button" onclick="document.getElementById('imageInput').click()" style="margin-top: 15px; padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">
+            <button type="button" onclick="event.stopPropagation(); selectImages()" style="margin-top: 15px; padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">
                 Select Images
             </button>
         </div>
-        <input type="file" id="imageInput" multiple accept="image/*" style="display: none;">
+        <input type="file" id="imageInput" multiple accept="image/*" style="display: none;" onchange="processSelectedFiles(this.files)">
 
         <!-- Image Preview -->
         <div class="preview-grid" id="imagePreview"></div>
@@ -379,79 +379,68 @@
         let sessionId = null;
         let audioId = null;
 
-        // Wait for DOM to be fully loaded
-        document.addEventListener('DOMContentLoaded', function() {
-            // Image upload handling
-            const imageUploadArea = document.getElementById('imageUploadArea');
-            const imageInput = document.getElementById('imageInput');
-            const audioInput = document.getElementById('audioInput');
-
-            // Debug logging
-            console.log('Upload area:', imageUploadArea);
-            console.log('Image input:', imageInput);
-
-            // Click to browse - only for the div area, not button
-            if (imageUploadArea && imageInput) {
-                imageUploadArea.addEventListener('click', (e) => {
-                    // Don't trigger if clicking the button
-                    if (e.target.tagName !== 'BUTTON') {
-                        e.preventDefault();
-                        console.log('Upload area clicked, triggering file input...');
-                        imageInput.click();
-                    }
-                });
+        // Simple direct functions that will definitely work
+        function selectImages() {
+            console.log('selectImages called');
+            const input = document.getElementById('imageInput');
+            if (input) {
+                input.click();
             } else {
-                console.error('Could not find upload area or image input elements');
+                console.error('Image input not found');
             }
+        }
 
-            // Drag and drop events
-            if (imageUploadArea) {
-                imageUploadArea.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    imageUploadArea.classList.add('dragover');
+        function processSelectedFiles(files) {
+            console.log('processSelectedFiles called with', files.length, 'files');
+            if (files && files.length > 0) {
+                handleImageFiles(files).catch(err => {
+                    console.error('Error handling files:', err);
+                    alert('Error processing images. Please try again.');
+                });
+            }
+        }
+
+        // Setup drag and drop when DOM is ready
+        window.addEventListener('load', function() {
+            console.log('Page fully loaded, setting up drag and drop...');
+
+            const uploadArea = document.getElementById('imageUploadArea');
+
+            if (uploadArea) {
+                // Prevent default drag behaviors
+                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                    uploadArea.addEventListener(eventName, preventDefaults, false);
                 });
 
-                imageUploadArea.addEventListener('dragenter', (e) => {
+                function preventDefaults(e) {
                     e.preventDefault();
                     e.stopPropagation();
-                    imageUploadArea.classList.add('dragover');
+                }
+
+                // Highlight drop area when item is dragged over it
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    uploadArea.addEventListener(eventName, () => {
+                        uploadArea.classList.add('dragover');
+                    }, false);
                 });
 
-                imageUploadArea.addEventListener('dragleave', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    // Only remove class if leaving the area completely
-                    if (e.target === imageUploadArea) {
-                        imageUploadArea.classList.remove('dragover');
-                    }
+                ['dragleave', 'drop'].forEach(eventName => {
+                    uploadArea.addEventListener(eventName, () => {
+                        uploadArea.classList.remove('dragover');
+                    }, false);
                 });
 
-                imageUploadArea.addEventListener('drop', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    imageUploadArea.classList.remove('dragover');
-
-                    const files = e.dataTransfer.files;
+                // Handle dropped files
+                uploadArea.addEventListener('drop', (e) => {
+                    const dt = e.dataTransfer;
+                    const files = dt.files;
                     console.log('Files dropped:', files.length);
-                    if (files.length > 0) {
-                        handleImageFiles(files).catch(console.error);
-                    }
-                });
+                    processSelectedFiles(files);
+                }, false);
             }
 
-            // File input change event
-            if (imageInput) {
-                imageInput.addEventListener('change', (e) => {
-                    console.log('File input changed, files:', e.target.files);
-                    if (e.target.files && e.target.files.length > 0) {
-                        handleImageFiles(e.target.files).catch(console.error);
-                    }
-                    // Reset input value to allow selecting same file again
-                    e.target.value = '';
-                });
-
-            // Audio input change event
+            // Setup audio input
+            const audioInput = document.getElementById('audioInput');
             if (audioInput) {
                 audioInput.addEventListener('change', async (e) => {
                     const file = e.target.files[0];
@@ -459,17 +448,6 @@
                         await uploadAudioFile(file);
                     }
                 });
-            }
-
-            // Prevent default drag behaviors on document
-            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-                document.addEventListener(eventName, preventDefaults, false);
-                document.body.addEventListener(eventName, preventDefaults, false);
-            });
-
-            function preventDefaults(e) {
-                e.preventDefault();
-                e.stopPropagation();
             }
         });
 
