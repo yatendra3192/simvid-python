@@ -405,37 +405,40 @@
             }
 
             // Drag and drop events
-            imageUploadArea.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                imageUploadArea.classList.add('dragover');
-            });
+            if (imageUploadArea) {
+                imageUploadArea.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    imageUploadArea.classList.add('dragover');
+                });
 
-            imageUploadArea.addEventListener('dragenter', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                imageUploadArea.classList.add('dragover');
-            });
+                imageUploadArea.addEventListener('dragenter', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    imageUploadArea.classList.add('dragover');
+                });
 
-            imageUploadArea.addEventListener('dragleave', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                // Only remove class if leaving the area completely
-                if (e.target === imageUploadArea) {
+                imageUploadArea.addEventListener('dragleave', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // Only remove class if leaving the area completely
+                    if (e.target === imageUploadArea) {
+                        imageUploadArea.classList.remove('dragover');
+                    }
+                });
+
+                imageUploadArea.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     imageUploadArea.classList.remove('dragover');
-                }
-            });
 
-            imageUploadArea.addEventListener('drop', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                imageUploadArea.classList.remove('dragover');
-
-                const files = e.dataTransfer.files;
-                if (files.length > 0) {
-                    handleImageFiles(files);
-                }
-            });
+                    const files = e.dataTransfer.files;
+                    console.log('Files dropped:', files.length);
+                    if (files.length > 0) {
+                        handleImageFiles(files);
+                    }
+                });
+            }
 
             // File input change event
             if (imageInput) {
@@ -453,12 +456,14 @@
             }
 
             // Audio input change event
-            audioInput.addEventListener('change', async (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    await uploadAudioFile(file);
-                }
-            });
+            if (audioInput) {
+                audioInput.addEventListener('change', async (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        await uploadAudioFile(file);
+                    }
+                });
+            }
 
             // Prevent default drag behaviors on document
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -473,64 +478,107 @@
         });
 
         async function handleImageFiles(files) {
-            console.log('Handling files:', files.length);
+            console.log('handleImageFiles called with', files.length, 'files');
+
+            if (!files || files.length === 0) {
+                console.error('No files provided to handleImageFiles');
+                return;
+            }
+
             const formData = new FormData();
             let hasImages = false;
+            let previewCount = 0;
 
-            for (let file of files) {
-                if (file.type.startsWith('image/')) {
+            // Convert FileList to Array for easier handling
+            const fileArray = Array.from(files);
+            console.log('Processing files:', fileArray.map(f => ({name: f.name, type: f.type, size: f.size})));
+
+            for (let file of fileArray) {
+                console.log('Processing file:', file.name, 'Type:', file.type);
+
+                // Check if it's an image
+                if (file.type && file.type.startsWith('image/')) {
                     hasImages = true;
                     formData.append('images', file);
-                    console.log('Adding image:', file.name, file.size);
+                    console.log('Added to FormData:', file.name);
 
                     // Show preview
                     const reader = new FileReader();
                     reader.onload = (e) => {
+                        console.log('Preview loaded for:', file.name);
                         const previewItem = document.createElement('div');
                         previewItem.className = 'preview-item';
                         previewItem.innerHTML = `
                             <img src="${e.target.result}" alt="${file.name}">
                             <button class="remove-btn" onclick="removeImage(this)">×</button>
                         `;
-                        document.getElementById('imagePreview').appendChild(previewItem);
+                        const previewGrid = document.getElementById('imagePreview');
+                        if (previewGrid) {
+                            previewGrid.appendChild(previewItem);
+                            previewCount++;
+                            console.log('Preview added to grid. Total previews:', previewCount);
+                        } else {
+                            console.error('Preview grid not found');
+                        }
                     };
                     reader.onerror = (error) => {
                         console.error('Error reading file:', file.name, error);
                     };
                     reader.readAsDataURL(file);
+                } else {
+                    console.log('Skipping non-image file:', file.name);
                 }
             }
 
             if (!hasImages) {
-                alert('Please select image files only');
+                console.error('No valid image files found');
+                alert('Please select image files only (JPG, PNG, GIF, etc.)');
                 return;
             }
 
-            // Upload images
+            // Upload images to server
             try {
-                console.log('Uploading images to server...');
+                console.log('Starting upload to server...');
                 const response = await fetch('/upload_images', {
                     method: 'POST',
                     body: formData
                 });
 
+                console.log('Response status:', response.status);
+
                 if (!response.ok) {
-                    throw new Error(`Upload failed: ${response.status}`);
+                    const errorText = await response.text();
+                    console.error('Server error:', errorText);
+                    throw new Error(`Upload failed: ${response.status} - ${errorText}`);
                 }
 
                 const data = await response.json();
+                console.log('Server response:', data);
+
                 if (data.success) {
-                    console.log('Upload successful:', data);
+                    console.log('Upload successful!');
                     sessionId = data.session_id;
                     uploadedImages = data.images;
-                    document.getElementById('settings').style.display = 'block';
-                    document.getElementById('actionButtons').style.display = 'block';
+
+                    // Show settings and action buttons
+                    const settingsEl = document.getElementById('settings');
+                    const actionsEl = document.getElementById('actionButtons');
+
+                    if (settingsEl) {
+                        settingsEl.style.display = 'block';
+                        console.log('Settings panel shown');
+                    }
+                    if (actionsEl) {
+                        actionsEl.style.display = 'block';
+                        console.log('Action buttons shown');
+                    }
                 } else {
+                    console.error('Upload failed:', data.error);
                     alert('Upload failed: ' + (data.error || 'Unknown error'));
                 }
             } catch (error) {
                 console.error('Upload error:', error);
-                alert('Failed to upload images. Please try again.');
+                alert('Failed to upload images: ' + error.message);
             }
         }
 
