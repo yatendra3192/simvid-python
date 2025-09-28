@@ -342,6 +342,13 @@
             return minutes * 60 + seconds;
         }
 
+        // Helper function to convert seconds to MM:SS
+        function secondsToTime(totalSeconds) {
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = Math.floor(totalSeconds % 60);
+            return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+
         // Main initialization
         document.addEventListener('DOMContentLoaded', function() {
             console.log('DOM loaded, initializing...');
@@ -568,7 +575,13 @@
                     const audioData = await audioResponse.json();
                     if (audioData.success) {
                         audioId = audioData.audio_id;
-                        showStatus('progressStatus', 'info', 'Audio downloaded! Now generating video...');
+                        // Show duration info and any warnings
+                        let statusMsg = 'Audio downloaded! ';
+                        if (audioData.trimmed) {
+                            statusMsg += `Using ${secondsToTime(startTime || 0)} to ${secondsToTime(endTime || audioData.duration)}. `;
+                        }
+                        statusMsg += 'Now generating video...';
+                        showStatus('progressStatus', 'info', statusMsg);
                         updateProgress(20);
                     } else {
                         showStatus('progressStatus', 'warning', 'Could not download audio. Continuing without music...');

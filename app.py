@@ -364,29 +364,49 @@ def generate_video():
                             start_time = trim_info.get('start', 0) or 0
                             end_time = trim_info.get('end', None)
 
-                            print(f"Applying trim: start={start_time}, end={end_time}")
+                            # Get actual audio duration and validate trim times
+                            actual_duration = audio_clip.duration if hasattr(audio_clip, 'duration') else None
 
-                            # Apply trimming using MoviePy 2.x compatible method
-                            # Try different methods for compatibility
-                            try:
-                                if end_time:
-                                    audio_clip = audio_clip.subclipped(start_time, end_time)
-                                elif start_time > 0:
-                                    audio_clip = audio_clip.subclipped(start_time)
-                            except AttributeError:
-                                # Fallback for MoviePy 2.x
-                                try:
-                                    if end_time:
-                                        audio_clip = audio_clip.with_subclip(start_time, end_time)
-                                    elif start_time > 0:
-                                        audio_clip = audio_clip.with_subclip(start_time, None)
-                                except:
-                                    # Last resort: create new clip with specific duration
-                                    print(f"Using duration-based trimming")
-                                    if end_time:
-                                        new_duration = end_time - start_time
-                                        audio_clip = audio_clip.with_duration(new_duration)
-                                    # Note: For start_time only, we'll handle it differently
+                            if actual_duration:
+                                # Ensure start time is within bounds
+                                start_time = min(max(0, start_time), actual_duration)
+
+                                # Ensure end time is within bounds
+                                if end_time is not None:
+                                    end_time = min(max(start_time, end_time), actual_duration)
+
+                                print(f"Audio duration: {actual_duration}, Applying trim: start={start_time}, end={end_time}")
+
+                                # Only trim if there's actually something to trim
+                                if start_time > 0 or (end_time is not None and end_time < actual_duration):
+                                    # Apply trimming using MoviePy 2.x compatible method
+                                    # Try different methods for compatibility
+                                    try:
+                                        if end_time:
+                                            audio_clip = audio_clip.subclipped(start_time, end_time)
+                                        elif start_time > 0:
+                                            audio_clip = audio_clip.subclipped(start_time)
+                                    except AttributeError:
+                                        # Fallback for MoviePy 2.x
+                                        try:
+                                            if end_time:
+                                                audio_clip = audio_clip.with_subclip(start_time, end_time)
+                                            elif start_time > 0:
+                                                audio_clip = audio_clip.with_subclip(start_time, None)
+                                        except:
+                                            # Last resort: create new clip with specific duration
+                                            print(f"Using duration-based trimming")
+                                            if end_time:
+                                                new_duration = end_time - start_time
+                                                # Use with_subclip for a safer approach
+                                                try:
+                                                    audio_clip = audio_clip.subclipped(0, new_duration)
+                                                except:
+                                                    audio_clip = audio_clip.with_duration(new_duration)
+                                else:
+                                    print(f"Trim times out of bounds or unnecessary, using full audio")
+                            else:
+                                print(f"Could not get audio duration, skipping trim")
 
                     # Get durations
                     video_duration = final_video.duration
