@@ -202,6 +202,11 @@
             background: #ffebee;
             color: #c62828;
         }
+
+        .status.warning {
+            background: #fff3e0;
+            color: #e65100;
+        }
     </style>
 </head>
 <body>
@@ -251,14 +256,12 @@
             <h3 style="margin-top: 30px;">Background Music (Optional)</h3>
             <div class="audio-section">
                 <div style="margin-bottom: 15px;">
-                    <strong>Option 1:</strong> Download from YouTube
-                    <input type="text" id="youtubeUrl" placeholder="https://www.youtube.com/watch?v=..." style="width: 100%; margin: 10px 0;">
-                    <button class="btn btn-secondary" id="downloadYouTubeBtn" style="width: 100%;">
-                        Download Audio from YouTube
-                    </button>
+                    <strong>Option 1:</strong> YouTube URL
+                    <input type="text" id="youtubeUrl" placeholder="https://www.youtube.com/watch?v=... (optional)" style="width: 100%; margin: 10px 0; padding: 10px; border: 2px solid #ddd; border-radius: 8px;">
+                    <small style="color: #666;">Paste a YouTube link - audio will be downloaded automatically when generating video</small>
                 </div>
-                <div>
-                    <strong>Option 2:</strong> Upload audio file
+                <div style="margin-top: 20px;">
+                    <strong>Option 2:</strong> Upload your own audio
                     <input type="file" id="audioInput" accept="audio/*" style="display: none;">
                     <button class="btn btn-secondary" id="uploadAudioBtn" style="width: 100%; margin-top: 10px;">
                         Choose Audio File
@@ -311,7 +314,6 @@
             const selectBtn = document.getElementById('selectBtn');
             const uploadAudioBtn = document.getElementById('uploadAudioBtn');
             const audioInput = document.getElementById('audioInput');
-            const downloadYouTubeBtn = document.getElementById('downloadYouTubeBtn');
             const generateBtn = document.getElementById('generateBtn');
             const clearBtn = document.getElementById('clearBtn');
             const createNewBtn = document.getElementById('createNewBtn');
@@ -366,7 +368,7 @@
                 }
             });
 
-            downloadYouTubeBtn.addEventListener('click', downloadYouTubeAudio);
+            // Remove the downloadYouTubeBtn listener since we're removing that button
 
             // Action buttons
             generateBtn.addEventListener('click', generateVideo);
@@ -490,8 +492,38 @@
             }
 
             document.getElementById('progress').style.display = 'block';
-            updateProgress(10);
-            showStatus('progressStatus', 'info', 'Generating video...');
+
+            // Check if YouTube URL is provided but not downloaded yet
+            const youtubeUrl = document.getElementById('youtubeUrl').value.trim();
+            if (youtubeUrl && !audioId) {
+                updateProgress(5);
+                showStatus('progressStatus', 'info', 'Downloading audio from YouTube...');
+
+                try {
+                    const audioResponse = await fetch('/download_youtube', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ url: youtubeUrl })
+                    });
+
+                    const audioData = await audioResponse.json();
+                    if (audioData.success) {
+                        audioId = audioData.audio_id;
+                        showStatus('progressStatus', 'info', 'Audio downloaded! Now generating video...');
+                        updateProgress(20);
+                    } else {
+                        showStatus('progressStatus', 'warning', 'Could not download audio. Continuing without music...');
+                        updateProgress(20);
+                    }
+                } catch (error) {
+                    console.error('YouTube download error:', error);
+                    showStatus('progressStatus', 'warning', 'Audio download failed. Continuing without music...');
+                    updateProgress(20);
+                }
+            } else {
+                updateProgress(20);
+                showStatus('progressStatus', 'info', 'Generating video...');
+            }
 
             try {
                 const response = await fetch('/generate_video', {
@@ -506,21 +538,26 @@
                     })
                 });
 
-                updateProgress(50);
+                updateProgress(60);
                 const data = await response.json();
 
                 if (data.success) {
                     updateProgress(100);
-                    showStatus('progressStatus', 'success', '✅ Video generated!');
+                    showStatus('progressStatus', 'success', '✅ Video generated successfully!');
 
                     document.getElementById('videoPlayer').src = data.download_url;
                     document.getElementById('downloadLink').href = data.download_url;
                     document.getElementById('videoResult').style.display = 'block';
+
+                    // Hide progress after a moment
+                    setTimeout(() => {
+                        document.getElementById('progress').style.display = 'none';
+                    }, 2000);
                 } else {
                     showStatus('progressStatus', 'error', '❌ ' + data.error);
                 }
             } catch (error) {
-                showStatus('progressStatus', 'error', '❌ Generation failed');
+                showStatus('progressStatus', 'error', '❌ Generation failed: ' + error.message);
             }
         }
 
