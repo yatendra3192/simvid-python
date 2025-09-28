@@ -435,7 +435,7 @@
                     const files = e.dataTransfer.files;
                     console.log('Files dropped:', files.length);
                     if (files.length > 0) {
-                        handleImageFiles(files);
+                        handleImageFiles(files).catch(console.error);
                     }
                 });
             }
@@ -445,15 +445,11 @@
                 imageInput.addEventListener('change', (e) => {
                     console.log('File input changed, files:', e.target.files);
                     if (e.target.files && e.target.files.length > 0) {
-                        handleImageFiles(e.target.files);
+                        handleImageFiles(e.target.files).catch(console.error);
                     }
+                    // Reset input value to allow selecting same file again
+                    e.target.value = '';
                 });
-
-                // Also add direct onclick handler as fallback
-                imageInput.onclick = function() {
-                    console.log('File input clicked directly');
-                };
-            }
 
             // Audio input change event
             if (audioInput) {
@@ -477,83 +473,104 @@
             }
         });
 
-        async function handleImageFiles(files) {
-            console.log('handleImageFiles called with', files.length, 'files');
+        async function handleImageFiles(fileList) {
+            console.log('handleImageFiles called with', fileList.length, 'files');
 
-            if (!files || files.length === 0) {
-                console.error('No files provided to handleImageFiles');
+            // Check if preview grid exists
+            const previewGrid = document.getElementById('imagePreview');
+            if (!previewGrid) {
+                console.error('#imagePreview element not found in DOM');
+                alert('Error: Preview area not found. Please refresh the page.');
                 return;
             }
 
+            const files = Array.from(fileList);
             const formData = new FormData();
-            let hasImages = false;
-            let previewCount = 0;
+            let addedCount = 0;
 
-            // Convert FileList to Array for easier handling
-            const fileArray = Array.from(files);
-            console.log('Processing files:', fileArray.map(f => ({name: f.name, type: f.type, size: f.size})));
+            console.log('Processing files:', files.map(f => ({name: f.name, type: f.type, size: f.size})));
 
-            for (let file of fileArray) {
+            for (const file of files) {
                 console.log('Processing file:', file.name, 'Type:', file.type);
 
-                // Check if it's an image
-                if (file.type && file.type.startsWith('image/')) {
-                    hasImages = true;
-                    formData.append('images', file);
-                    console.log('Added to FormData:', file.name);
+                // More robust image check - handles missing MIME types
+                const isImage = (file.type && file.type.startsWith('image/')) ||
+                               /\.(png|jpe?g|gif|webp|bmp|heic|heif|svg)$/i.test(file.name);
 
-                    // Show preview
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        console.log('Preview loaded for:', file.name);
-                        const previewItem = document.createElement('div');
-                        previewItem.className = 'preview-item';
-                        previewItem.innerHTML = `
-                            <img src="${e.target.result}" alt="${file.name}">
-                            <button class="remove-btn" onclick="removeImage(this)">×</button>
-                        `;
-                        const previewGrid = document.getElementById('imagePreview');
-                        if (previewGrid) {
-                            previewGrid.appendChild(previewItem);
-                            previewCount++;
-                            console.log('Preview added to grid. Total previews:', previewCount);
-                        } else {
-                            console.error('Preview grid not found');
-                        }
-                    };
-                    reader.onerror = (error) => {
-                        console.error('Error reading file:', file.name, error);
-                    };
-                    reader.readAsDataURL(file);
-                } else {
+                if (!isImage) {
                     console.log('Skipping non-image file:', file.name);
+                    continue;
                 }
+
+                // Add to FormData for upload
+                formData.append('images', file);
+                addedCount++;
+                console.log('Added to FormData:', file.name);
+
+                // Create preview using object URL (faster and more reliable)
+                const previewItem = document.createElement('div');
+                previewItem.className = 'preview-item';
+
+                const img = document.createElement('img');
+                img.alt = file.name;
+
+                // Use object URL for immediate display
+                const objectURL = URL.createObjectURL(file);
+                img.src = objectURL;
+
+                // Clean up object URL after image loads
+                img.addEventListener('load', () => {
+                    console.log('Preview loaded for:', file.name);
+                    URL.revokeObjectURL(objectURL);
+                }, { once: true });
+
+                img.addEventListener('error', () => {
+                    console.error('Failed to load preview for:', file.name);
+                    URL.revokeObjectURL(objectURL);
+                });
+
+                // Create remove button safely
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'remove-btn';
+                removeBtn.textContent = '×';
+                removeBtn.addEventListener('click', function() {
+                    removeImage(this);
+                });
+
+                // Assemble preview item
+                previewItem.appendChild(img);
+                previewItem.appendChild(removeBtn);
+                previewGrid.appendChild(previewItem);
+
+                console.log('Preview added to grid for:', file.name);
             }
 
-            if (!hasImages) {
-                console.error('No valid image files found');
-                alert('Please select image files only (JPG, PNG, GIF, etc.)');
+            if (addedCount === 0) {
+                console.warn('No valid image files found in selection');
+                alert('Please select valid image files (JPG, PNG, GIF, etc.)');
                 return;
             }
 
-            // Upload images to server
+            console.log(`Uploading ${addedCount} images to server...`);
+
+            // Upload images to server with better error handling
             try {
-                console.log('Starting upload to server...');
                 const response = await fetch('/upload_images', {
                     method: 'POST',
                     body: formData
                 });
 
-                console.log('Response status:', response.status);
+                console.log('Server response status:', response.status);
 
                 if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('Server error:', errorText);
-                    throw new Error(`Upload failed: ${response.status} - ${errorText}`);
+                    const errorText = await response.text().catch(() => 'No error details');
+                    console.error('Upload failed:', response.status, errorText);
+                    throw new Error(`Server error ${response.status}: ${errorText}`);
                 }
 
                 const data = await response.json();
-                console.log('Server response:', data);
+                console.log('Server response data:', data);
 
                 if (data.success) {
                     console.log('Upload successful!');
@@ -567,18 +584,23 @@
                     if (settingsEl) {
                         settingsEl.style.display = 'block';
                         console.log('Settings panel shown');
+                    } else {
+                        console.error('Settings element not found');
                     }
+
                     if (actionsEl) {
                         actionsEl.style.display = 'block';
                         console.log('Action buttons shown');
+                    } else {
+                        console.error('Action buttons element not found');
                     }
                 } else {
-                    console.error('Upload failed:', data.error);
-                    alert('Upload failed: ' + (data.error || 'Unknown error'));
+                    console.error('Server returned error:', data.error);
+                    alert('Upload failed: ' + (data.error || 'Unknown server error'));
                 }
             } catch (error) {
-                console.error('Upload error:', error);
-                alert('Failed to upload images: ' + error.message);
+                console.error('Network/upload error:', error);
+                alert('Failed to upload images. Please check your connection and try again.');
             }
         }
 
