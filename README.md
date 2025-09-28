@@ -1,4 +1,4 @@
-# SimVid Python 🎬
+# Aiezzy Simvid 🎬
 
 A web-based slideshow video generator that creates MP4 videos from your images with background music. Upload images, add YouTube audio or your own music, and generate beautiful slideshow videos instantly!
 
@@ -14,7 +14,7 @@ A web-based slideshow video generator that creates MP4 videos from your images w
 
 ## 🚀 Live Demo
 
-Try it now: [https://simvid-python-5b632.up.railway.app](https://simvid-python-5b632.up.railway.app)
+Try it now: [https://aiezzy-simvid.up.railway.app](https://aiezzy-simvid.up.railway.app)
 
 ## 🛠️ Technology Stack
 

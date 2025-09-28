@@ -1,7 +1,7 @@
-# CLAUDE.md - Project Context for SimVid Python
+# CLAUDE.md - Project Context for Aiezzy Simvid
 
 ## Project Overview
-**SimVid Python** - A web-based slideshow video generator that creates MP4 videos from images with background music. Built with Flask (Python) backend and vanilla JavaScript frontend.
+**Aiezzy Simvid** - A web-based slideshow video generator that creates MP4 videos from images with background music. Built with Flask (Python) backend and vanilla JavaScript frontend.
 
 ## Current Status (As of 2025-09-28 - Late Evening Update)
 

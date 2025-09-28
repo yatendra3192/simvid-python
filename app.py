@@ -1,5 +1,5 @@
 """
-SimVid - Python Slideshow Video Generator with YouTube Audio
+Aiezzy Simvid - Slideshow Video Generator with YouTube Audio
 A complete Python application for creating slideshow videos from images with background music
 """
 
@@ -511,7 +511,7 @@ if __name__ == '__main__':
 
     print(f"""
     ========================================
-    SimVid Python - Slideshow Video Generator
+    Aiezzy Simvid - Slideshow Video Generator
     ========================================
     Server starting at: http://localhost:{port}
 
