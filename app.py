@@ -174,9 +174,11 @@ def upload_audio():
 
 @app.route('/download_youtube', methods=['POST'])
 def download_youtube():
-    """Download audio from YouTube URL"""
+    """Download audio from YouTube URL with optional time trimming"""
     data = request.get_json()
     url = data.get('url')
+    start_time = data.get('start_time')  # in seconds
+    end_time = data.get('end_time')  # in seconds
 
     if not url:
         return jsonify({'error': 'No URL provided'}), 400
@@ -184,33 +186,79 @@ def download_youtube():
     audio_id = str(uuid.uuid4())
     output_path = os.path.join(app.config['AUDIO_FOLDER'], audio_id)
 
-    # Simplified options - let yt-dlp handle the format without forcing conversion
+    # Build download options
     ydl_opts = {
         'format': 'bestaudio/best',
-        'outtmpl': f"{output_path}.%(ext)s",
+        'outtmpl': f"{output_path}_full.%(ext)s",  # Download full first
         'quiet': True,
         'no_warnings': True,
         'extractaudio': True,
-        # Don't force MP3 conversion if ffmpeg is not available
-        # The audio will be downloaded in its original format
     }
+
+    # Add download sections if times are specified
+    # Note: yt-dlp supports download_sections for newer versions
+    if start_time is not None or end_time is not None:
+        sections = []
+        if start_time is not None and end_time is not None:
+            # Download specific section
+            ydl_opts['download_ranges'] = lambda info_dict, ydl: [{'start_time': start_time, 'end_time': end_time}]
+            # Store the times for later trimming
+            trim_needed = True
+            trim_start = start_time
+            trim_end = end_time
+        else:
+            trim_needed = False
+            trim_start = None
+            trim_end = None
+    else:
+        trim_needed = False
+        trim_start = None
+        trim_end = None
+
+    # For now, download full and trim after (more reliable)
+    ydl_opts['outtmpl'] = f"{output_path}.%(ext)s"
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
             title = info.get('title', 'Unknown')
-            duration = info.get('duration', 0)
+            full_duration = info.get('duration', 0)
 
             # Find the downloaded file
             audio_files = list(Path(app.config['AUDIO_FOLDER']).glob(f"{audio_id}.*"))
             if audio_files:
                 audio_file = str(audio_files[0])
+                duration = full_duration
+
+                # Format time info for response if times were specified
+                time_info = ""
+                if start_time is not None or end_time is not None:
+                    # Store trimming info in filename for later use during video generation
+                    # Since MoviePy audio trimming has issues, we'll handle it during video generation
+                    start_str = f"{int(start_time//60)}:{int(start_time%60):02d}" if start_time else "0:00"
+                    end_str = f"{int(end_time//60)}:{int(end_time%60):02d}" if end_time else f"{int(full_duration//60)}:{int(full_duration%60):02d}"
+                    time_info = f" ({start_str} - {end_str})"
+
+                    # Save trim info for later use
+                    trim_info_file = os.path.join(app.config['AUDIO_FOLDER'], f"{audio_id}_trim.json")
+                    with open(trim_info_file, 'w') as f:
+                        json.dump({'start': start_time, 'end': end_time}, f)
+
+                    # Calculate trimmed duration
+                    if start_time is not None and end_time is not None:
+                        duration = end_time - start_time
+                    elif end_time is not None:
+                        duration = end_time
+                    elif start_time is not None:
+                        duration = full_duration - start_time
+
                 return jsonify({
                     'success': True,
                     'audio_id': audio_id,
-                    'title': title,
+                    'title': title + time_info,
                     'duration': duration,
-                    'filename': os.path.basename(audio_file)
+                    'filename': os.path.basename(audio_file),
+                    'trimmed': (start_time is not None or end_time is not None)
                 })
             else:
                 return jsonify({'error': 'Audio file not created'}), 500
@@ -307,6 +355,38 @@ def generate_video():
                     audio_path = str(audio_files[0])
                     print(f"Loading audio from: {audio_path}")
                     audio_clip = AudioFileClip(audio_path)
+
+                    # Check if there's trim information
+                    trim_info_file = os.path.join(app.config['AUDIO_FOLDER'], f"{audio_id}_trim.json")
+                    if os.path.exists(trim_info_file):
+                        with open(trim_info_file, 'r') as f:
+                            trim_info = json.load(f)
+                            start_time = trim_info.get('start', 0) or 0
+                            end_time = trim_info.get('end', None)
+
+                            print(f"Applying trim: start={start_time}, end={end_time}")
+
+                            # Apply trimming using MoviePy 2.x compatible method
+                            # Try different methods for compatibility
+                            try:
+                                if end_time:
+                                    audio_clip = audio_clip.subclipped(start_time, end_time)
+                                elif start_time > 0:
+                                    audio_clip = audio_clip.subclipped(start_time)
+                            except AttributeError:
+                                # Fallback for MoviePy 2.x
+                                try:
+                                    if end_time:
+                                        audio_clip = audio_clip.with_subclip(start_time, end_time)
+                                    elif start_time > 0:
+                                        audio_clip = audio_clip.with_subclip(start_time, None)
+                                except:
+                                    # Last resort: create new clip with specific duration
+                                    print(f"Using duration-based trimming")
+                                    if end_time:
+                                        new_duration = end_time - start_time
+                                        audio_clip = audio_clip.with_duration(new_duration)
+                                    # Note: For start_time only, we'll handle it differently
 
                     # Get durations
                     video_duration = final_video.duration

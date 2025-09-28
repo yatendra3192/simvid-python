@@ -258,7 +258,28 @@
                 <div style="margin-bottom: 15px;">
                     <strong>Option 1:</strong> YouTube URL
                     <input type="text" id="youtubeUrl" placeholder="https://www.youtube.com/watch?v=... (optional)" style="width: 100%; margin: 10px 0; padding: 10px; border: 2px solid #ddd; border-radius: 8px;">
-                    <small style="color: #666;">Paste a YouTube link - audio will be downloaded automatically when generating video</small>
+
+                    <!-- Time selection for YouTube audio -->
+                    <div style="display: flex; gap: 15px; margin: 10px 0; align-items: center;">
+                        <div style="flex: 1;">
+                            <label style="font-size: 14px; color: #666;">Start Time:</label>
+                            <input type="text" id="audioStartTime" placeholder="0:00"
+                                   style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 6px; margin-top: 5px;"
+                                   pattern="[0-9]{1,2}:[0-9]{2}" title="Format: MM:SS or M:SS">
+                        </div>
+                        <div style="flex: 1;">
+                            <label style="font-size: 14px; color: #666;">End Time:</label>
+                            <input type="text" id="audioEndTime" placeholder="0:30"
+                                   style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 6px; margin-top: 5px;"
+                                   pattern="[0-9]{1,2}:[0-9]{2}" title="Format: MM:SS or M:SS">
+                        </div>
+                        <button type="button" onclick="useFullAudio()"
+                                style="margin-top: 20px; padding: 8px 15px; background: #f0f0f0; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                            Use Full Audio
+                        </button>
+                    </div>
+
+                    <small style="color: #666;">Specify start and end times (MM:SS format) to use only part of the audio. Leave empty to use full audio.</small>
                 </div>
                 <div style="margin-top: 20px;">
                     <strong>Option 2:</strong> Upload your own audio
@@ -303,6 +324,23 @@
         let uploadedImages = [];
         let sessionId = null;
         let audioId = null;
+
+        // Helper function for time inputs
+        function useFullAudio() {
+            document.getElementById('audioStartTime').value = '';
+            document.getElementById('audioEndTime').value = '';
+        }
+
+        // Convert time string (MM:SS) to seconds
+        function timeToSeconds(timeStr) {
+            if (!timeStr) return null;
+            const parts = timeStr.split(':');
+            if (parts.length !== 2) return null;
+            const minutes = parseInt(parts[0], 10);
+            const seconds = parseInt(parts[1], 10);
+            if (isNaN(minutes) || isNaN(seconds)) return null;
+            return minutes * 60 + seconds;
+        }
 
         // Main initialization
         document.addEventListener('DOMContentLoaded', function() {
@@ -497,13 +535,34 @@
             const youtubeUrl = document.getElementById('youtubeUrl').value.trim();
             if (youtubeUrl && !audioId) {
                 updateProgress(5);
-                showStatus('progressStatus', 'info', 'Downloading audio from YouTube...');
+
+                // Get time parameters
+                const startTimeStr = document.getElementById('audioStartTime').value.trim();
+                const endTimeStr = document.getElementById('audioEndTime').value.trim();
+                const startTime = timeToSeconds(startTimeStr);
+                const endTime = timeToSeconds(endTimeStr);
+
+                // Validate times
+                if (startTime !== null && endTime !== null && startTime >= endTime) {
+                    showStatus('progressStatus', 'error', '❌ End time must be after start time');
+                    document.getElementById('progress').style.display = 'none';
+                    return;
+                }
+
+                const statusMsg = (startTime !== null || endTime !== null)
+                    ? `Downloading audio (${startTimeStr || '0:00'} to ${endTimeStr || 'end'})...`
+                    : 'Downloading audio from YouTube...';
+                showStatus('progressStatus', 'info', statusMsg);
 
                 try {
                     const audioResponse = await fetch('/download_youtube', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ url: youtubeUrl })
+                        body: JSON.stringify({
+                            url: youtubeUrl,
+                            start_time: startTime,
+                            end_time: endTime
+                        })
                     });
 
                     const audioData = await audioResponse.json();
