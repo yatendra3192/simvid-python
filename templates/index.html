@@ -4,6 +4,39 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SimVid Python - Slideshow Video Generator</title>
+    <script>
+        // Define these functions immediately so they're available for onclick handlers
+        function selectImages() {
+            console.log('selectImages called');
+            const input = document.getElementById('imageInput');
+            if (input) {
+                input.click();
+            } else {
+                console.error('Image input not found');
+            }
+        }
+
+        function processSelectedFiles(files) {
+            console.log('processSelectedFiles called with', files ? files.length : 0, 'files');
+            if (files && files.length > 0) {
+                // Call handleImageFiles when it's available
+                if (typeof handleImageFiles === 'function') {
+                    handleImageFiles(files).catch(err => {
+                        console.error('Error handling files:', err);
+                        alert('Error processing images. Please try again.');
+                    });
+                } else {
+                    // Store files to process later when handleImageFiles is ready
+                    window.pendingFiles = files;
+                    console.log('Stored files to process later');
+                }
+            }
+        }
+
+        function removeImage(button) {
+            button.parentElement.remove();
+        }
+    </script>
     <style>
         * {
             margin: 0;
@@ -379,30 +412,16 @@
         let sessionId = null;
         let audioId = null;
 
-        // Simple direct functions that will definitely work
-        function selectImages() {
-            console.log('selectImages called');
-            const input = document.getElementById('imageInput');
-            if (input) {
-                input.click();
-            } else {
-                console.error('Image input not found');
-            }
-        }
-
-        function processSelectedFiles(files) {
-            console.log('processSelectedFiles called with', files.length, 'files');
-            if (files && files.length > 0) {
-                handleImageFiles(files).catch(err => {
-                    console.error('Error handling files:', err);
-                    alert('Error processing images. Please try again.');
-                });
-            }
-        }
-
         // Setup drag and drop when DOM is ready
         window.addEventListener('load', function() {
             console.log('Page fully loaded, setting up drag and drop...');
+
+            // Process any files that were selected before handleImageFiles was ready
+            if (window.pendingFiles) {
+                console.log('Processing pending files:', window.pendingFiles.length);
+                handleImageFiles(window.pendingFiles).catch(console.error);
+                window.pendingFiles = null;
+            }
 
             const uploadArea = document.getElementById('imageUploadArea');
 
@@ -776,10 +795,6 @@
             element.className = `status ${type}`;
             element.textContent = message;
             element.style.display = 'block';
-        }
-
-        function removeImage(button) {
-            button.parentElement.remove();
         }
 
         function clearAll() {
