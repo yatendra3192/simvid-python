@@ -11,9 +11,11 @@ import tempfile
 from pathlib import Path
 from datetime import datetime
 
-from flask import Flask, render_template, request, jsonify, send_file, url_for, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_file, url_for, send_from_directory, Response
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
+import signal
+import threading
 # Import moviepy components
 try:
     from moviepy import *
@@ -34,6 +36,8 @@ app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB max file size
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['OUTPUT_FOLDER'] = 'output'
 app.config['AUDIO_FOLDER'] = 'audio'
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0  # Disable caching for development
+app.config['REQUEST_TIMEOUT'] = 300  # 5 minute timeout
 
 # Allowed extensions
 ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'}

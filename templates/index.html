@@ -465,12 +465,27 @@
 
             showStatus('audioStatus', 'info', '⏳ Downloading audio from YouTube...');
 
+            // Request wake lock for audio download
+            await requestWakeLock();
+
+            // Add timeout control for audio download
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+
             try {
                 const response = await fetch('/download_youtube', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url })
+                    body: JSON.stringify({ url }),
+                    signal: controller.signal,
+                    keepalive: true
                 });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
 
                 const data = await response.json();
                 if (data.success) {
@@ -481,7 +496,44 @@
                     showStatus('audioStatus', 'error', `❌ ${data.error}`);
                 }
             } catch (error) {
-                showStatus('audioStatus', 'error', `❌ Download failed: ${error.message}`);
+                clearTimeout(timeoutId);
+                if (error.name === 'AbortError') {
+                    showStatus('audioStatus', 'error', '❌ Download timeout. Try a shorter video.');
+                } else {
+                    showStatus('audioStatus', 'error', `❌ Download failed: ${error.message}`);
+                }
+            } finally {
+                await releaseWakeLock();
+            }
+        }
+
+        // Wake Lock API to prevent screen sleep
+        let wakeLock = null;
+
+        async function requestWakeLock() {
+            if ('wakeLock' in navigator) {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Wake Lock active');
+
+                    // Re-acquire wake lock if page becomes visible again
+                    document.addEventListener('visibilitychange', async () => {
+                        if (wakeLock !== null && document.visibilityState === 'visible') {
+                            wakeLock = await navigator.wakeLock.request('screen');
+                            console.log('Wake Lock reacquired');
+                        }
+                    });
+                } catch (err) {
+                    console.log(`Wake Lock error: ${err.message}`);
+                }
+            }
+        }
+
+        async function releaseWakeLock() {
+            if (wakeLock !== null) {
+                await wakeLock.release();
+                wakeLock = null;
+                console.log('Wake Lock released');
             }
         }
 
@@ -499,6 +551,13 @@
             updateProgress(10);
             showStatus('progressStatus', 'info', 'Generating video...');
 
+            // Request wake lock to prevent screen sleep
+            await requestWakeLock();
+
+            // Use AbortController for timeout control
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minute timeout
+
             try {
                 const response = await fetch('/generate_video', {
                     method: 'POST',
@@ -509,10 +568,18 @@
                         duration,
                         transition,
                         resolution
-                    })
+                    }),
+                    signal: controller.signal,
+                    // Keep connection alive
+                    keepalive: true
                 });
 
+                clearTimeout(timeoutId);
                 updateProgress(50);
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
 
                 const data = await response.json();
                 if (data.success) {
@@ -530,13 +597,23 @@
 
                     // Hide progress after delay
                     setTimeout(() => {
-                        document.getElementById('progress').style.display = 'none';
+                        document.getElementById('progress').style.display = 'none');
                     }, 1000);
                 } else {
                     showStatus('progressStatus', 'error', `❌ ${data.error}`);
                 }
             } catch (error) {
-                showStatus('progressStatus', 'error', `❌ Generation failed: ${error.message}`);
+                clearTimeout(timeoutId);
+                if (error.name === 'AbortError') {
+                    showStatus('progressStatus', 'error', '❌ Request timeout. Please try again with fewer images or shorter duration.');
+                } else if (error.message.includes('Failed to fetch')) {
+                    showStatus('progressStatus', 'error', '❌ Connection lost. Please check your internet and try again.');
+                } else {
+                    showStatus('progressStatus', 'error', `❌ Generation failed: ${error.message}`);
+                }
+            } finally {
+                // Release wake lock when done
+                await releaseWakeLock();
             }
         }
 
