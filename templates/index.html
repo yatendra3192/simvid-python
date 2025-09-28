@@ -51,23 +51,41 @@
             transition: all 0.3s ease;
             background: #fafafa;
             margin-bottom: 30px;
+            position: relative;
+            -webkit-tap-highlight-color: rgba(0,0,0,0);
+            user-select: none;
         }
 
         .upload-area:hover {
             border-color: #667eea;
             background: #f5f5ff;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.1);
         }
 
         .upload-area.dragover {
             border-color: #667eea;
             background: #f0f0ff;
             transform: scale(1.02);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
+        }
+
+        .upload-area:active {
+            transform: scale(0.98);
+        }
+
+        .upload-area p {
+            margin-top: 10px;
+            color: #666;
+            font-weight: 500;
+            pointer-events: none;
         }
 
         .upload-icon {
             font-size: 48px;
             color: #667eea;
             margin-bottom: 10px;
+            pointer-events: none;
+            user-select: none;
         }
 
         .preview-grid {
@@ -358,45 +376,91 @@
         let sessionId = null;
         let audioId = null;
 
-        // Image upload handling
-        const imageUploadArea = document.getElementById('imageUploadArea');
-        const imageInput = document.getElementById('imageInput');
-        const audioInput = document.getElementById('audioInput');
+        // Wait for DOM to be fully loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Image upload handling
+            const imageUploadArea = document.getElementById('imageUploadArea');
+            const imageInput = document.getElementById('imageInput');
+            const audioInput = document.getElementById('audioInput');
 
-        imageUploadArea.addEventListener('click', () => imageInput.click());
+            // Click to browse
+            imageUploadArea.addEventListener('click', (e) => {
+                // Prevent triggering if clicking on child elements
+                if (e.target === imageUploadArea || e.target.parentElement === imageUploadArea) {
+                    imageInput.click();
+                }
+            });
 
-        imageUploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            imageUploadArea.classList.add('dragover');
-        });
+            // Drag and drop events
+            imageUploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                imageUploadArea.classList.add('dragover');
+            });
 
-        imageUploadArea.addEventListener('dragleave', () => {
-            imageUploadArea.classList.remove('dragover');
-        });
+            imageUploadArea.addEventListener('dragenter', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                imageUploadArea.classList.add('dragover');
+            });
 
-        imageUploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            imageUploadArea.classList.remove('dragover');
-            handleImageFiles(e.dataTransfer.files);
-        });
+            imageUploadArea.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                // Only remove class if leaving the area completely
+                if (e.target === imageUploadArea) {
+                    imageUploadArea.classList.remove('dragover');
+                }
+            });
 
-        imageInput.addEventListener('change', (e) => {
-            handleImageFiles(e.target.files);
-        });
+            imageUploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                imageUploadArea.classList.remove('dragover');
 
-        audioInput.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                await uploadAudioFile(file);
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleImageFiles(files);
+                }
+            });
+
+            // File input change event
+            imageInput.addEventListener('change', (e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                    handleImageFiles(e.target.files);
+                }
+            });
+
+            // Audio input change event
+            audioInput.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    await uploadAudioFile(file);
+                }
+            });
+
+            // Prevent default drag behaviors on document
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                document.addEventListener(eventName, preventDefaults, false);
+                document.body.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
             }
         });
 
         async function handleImageFiles(files) {
+            console.log('Handling files:', files.length);
             const formData = new FormData();
+            let hasImages = false;
 
             for (let file of files) {
                 if (file.type.startsWith('image/')) {
+                    hasImages = true;
                     formData.append('images', file);
+                    console.log('Adding image:', file.name, file.size);
 
                     // Show preview
                     const reader = new FileReader();
@@ -409,26 +473,43 @@
                         `;
                         document.getElementById('imagePreview').appendChild(previewItem);
                     };
+                    reader.onerror = (error) => {
+                        console.error('Error reading file:', file.name, error);
+                    };
                     reader.readAsDataURL(file);
                 }
             }
 
+            if (!hasImages) {
+                alert('Please select image files only');
+                return;
+            }
+
             // Upload images
             try {
+                console.log('Uploading images to server...');
                 const response = await fetch('/upload_images', {
                     method: 'POST',
                     body: formData
                 });
 
+                if (!response.ok) {
+                    throw new Error(`Upload failed: ${response.status}`);
+                }
+
                 const data = await response.json();
                 if (data.success) {
+                    console.log('Upload successful:', data);
                     sessionId = data.session_id;
                     uploadedImages = data.images;
                     document.getElementById('settings').style.display = 'block';
                     document.getElementById('actionButtons').style.display = 'block';
+                } else {
+                    alert('Upload failed: ' + (data.error || 'Unknown error'));
                 }
             } catch (error) {
                 console.error('Upload error:', error);
+                alert('Failed to upload images. Please try again.');
             }
         }
 
