@@ -277,8 +277,11 @@
         <div class="upload-area" id="imageUploadArea">
             <div class="upload-icon">📸</div>
             <p>Drag & drop images here or click to browse</p>
-            <input type="file" id="imageInput" multiple accept="image/*" style="display: none;">
+            <button type="button" onclick="document.getElementById('imageInput').click()" style="margin-top: 15px; padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">
+                Select Images
+            </button>
         </div>
+        <input type="file" id="imageInput" multiple accept="image/*" style="display: none;">
 
         <!-- Image Preview -->
         <div class="preview-grid" id="imagePreview"></div>
@@ -383,13 +386,23 @@
             const imageInput = document.getElementById('imageInput');
             const audioInput = document.getElementById('audioInput');
 
-            // Click to browse
-            imageUploadArea.addEventListener('click', (e) => {
-                // Prevent triggering if clicking on child elements
-                if (e.target === imageUploadArea || e.target.parentElement === imageUploadArea) {
-                    imageInput.click();
-                }
-            });
+            // Debug logging
+            console.log('Upload area:', imageUploadArea);
+            console.log('Image input:', imageInput);
+
+            // Click to browse - only for the div area, not button
+            if (imageUploadArea && imageInput) {
+                imageUploadArea.addEventListener('click', (e) => {
+                    // Don't trigger if clicking the button
+                    if (e.target.tagName !== 'BUTTON') {
+                        e.preventDefault();
+                        console.log('Upload area clicked, triggering file input...');
+                        imageInput.click();
+                    }
+                });
+            } else {
+                console.error('Could not find upload area or image input elements');
+            }
 
             // Drag and drop events
             imageUploadArea.addEventListener('dragover', (e) => {
@@ -425,11 +438,19 @@
             });
 
             // File input change event
-            imageInput.addEventListener('change', (e) => {
-                if (e.target.files && e.target.files.length > 0) {
-                    handleImageFiles(e.target.files);
-                }
-            });
+            if (imageInput) {
+                imageInput.addEventListener('change', (e) => {
+                    console.log('File input changed, files:', e.target.files);
+                    if (e.target.files && e.target.files.length > 0) {
+                        handleImageFiles(e.target.files);
+                    }
+                });
+
+                // Also add direct onclick handler as fallback
+                imageInput.onclick = function() {
+                    console.log('File input clicked directly');
+                };
+            }
 
             // Audio input change event
             audioInput.addEventListener('change', async (e) => {
