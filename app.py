@@ -503,6 +503,290 @@ def before_request():
     if random.randint(1, 100) == 1:
         clean_old_files()
 
+# ==================== ADMIN ROUTES ====================
+import hashlib
+import secrets
+import time
+
+# Admin configuration
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')  # Change this in production!
+admin_tokens = {}  # Store valid tokens
+
+def generate_token():
+    """Generate a secure random token"""
+    return secrets.token_hex(32)
+
+def verify_admin_token(token):
+    """Verify if the provided token is valid"""
+    if not token:
+        return False
+    if token in admin_tokens:
+        # Check if token is not expired (24 hours)
+        if time.time() - admin_tokens[token] < 86400:
+            return True
+        else:
+            del admin_tokens[token]
+    return False
+
+@app.route('/admin')
+def admin_page():
+    """Serve admin dashboard page"""
+    return render_template('admin.html')
+
+@app.route('/admin/login', methods=['POST'])
+def admin_login():
+    """Admin login endpoint"""
+    data = request.get_json()
+    password = data.get('password', '')
+
+    if password == ADMIN_PASSWORD:
+        token = generate_token()
+        admin_tokens[token] = time.time()
+        return jsonify({'success': True, 'token': token})
+    return jsonify({'success': False, 'error': 'Invalid password'}), 401
+
+@app.route('/admin/verify')
+def admin_verify():
+    """Verify admin token"""
+    token = request.headers.get('Authorization')
+    if verify_admin_token(token):
+        return jsonify({'valid': True})
+    return jsonify({'valid': False}), 401
+
+@app.route('/admin/data')
+def admin_data():
+    """Get dashboard data for admin"""
+    token = request.headers.get('Authorization')
+    if not verify_admin_token(token):
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    # Collect statistics
+    stats = {
+        'image_sessions': 0,
+        'audio_files': 0,
+        'videos': 0,
+        'total_size': 0
+    }
+
+    # Get image sessions
+    image_sessions = []
+    if os.path.exists(app.config['UPLOAD_FOLDER']):
+        for session_id in os.listdir(app.config['UPLOAD_FOLDER']):
+            session_path = os.path.join(app.config['UPLOAD_FOLDER'], session_id)
+            if os.path.isdir(session_path):
+                session_data = {
+                    'session_id': session_id,
+                    'created': os.path.getctime(session_path),
+                    'images': [],
+                    'image_count': 0,
+                    'total_size': 0
+                }
+
+                for img_file in os.listdir(session_path):
+                    img_path = os.path.join(session_path, img_file)
+                    if os.path.isfile(img_path):
+                        size = os.path.getsize(img_path)
+                        session_data['images'].append({
+                            'name': img_file,
+                            'size': size
+                        })
+                        session_data['total_size'] += size
+                        stats['total_size'] += size
+
+                session_data['image_count'] = len(session_data['images'])
+                if session_data['image_count'] > 0:
+                    image_sessions.append(session_data)
+                    stats['image_sessions'] += 1
+
+    # Get audio files
+    audio_files = []
+    if os.path.exists(app.config['AUDIO_FOLDER']):
+        for audio_file in os.listdir(app.config['AUDIO_FOLDER']):
+            if audio_file.endswith('_trim.json'):
+                continue  # Skip trim info files
+
+            audio_path = os.path.join(app.config['AUDIO_FOLDER'], audio_file)
+            if os.path.isfile(audio_path):
+                audio_id = audio_file.rsplit('.', 1)[0]
+                size = os.path.getsize(audio_path)
+
+                # Check for trim info
+                trim_file = os.path.join(app.config['AUDIO_FOLDER'], f"{audio_id}_trim.json")
+                trimmed = os.path.exists(trim_file)
+
+                # Try to get duration
+                duration = None
+                try:
+                    if MOVIEPY_AVAILABLE:
+                        audio_clip = AudioFileClip(audio_path)
+                        duration = audio_clip.duration
+                        audio_clip.close()
+                except:
+                    pass
+
+                audio_files.append({
+                    'id': audio_id,
+                    'name': audio_file,
+                    'size': size,
+                    'created': os.path.getctime(audio_path),
+                    'source': 'YouTube' if audio_id else 'Upload',
+                    'duration': duration,
+                    'trimmed': trimmed
+                })
+                stats['audio_files'] += 1
+                stats['total_size'] += size
+
+    # Get videos
+    videos = []
+    if os.path.exists(app.config['OUTPUT_FOLDER']):
+        for video_file in os.listdir(app.config['OUTPUT_FOLDER']):
+            video_path = os.path.join(app.config['OUTPUT_FOLDER'], video_file)
+            if os.path.isfile(video_path) and video_file.endswith('.mp4'):
+                video_id = video_file.rsplit('.', 1)[0]
+                size = os.path.getsize(video_path)
+                videos.append({
+                    'id': video_id,
+                    'name': video_file,
+                    'size': size,
+                    'created': os.path.getctime(video_path)
+                })
+                stats['videos'] += 1
+                stats['total_size'] += size
+
+    return jsonify({
+        'stats': stats,
+        'images': image_sessions,
+        'audio': audio_files,
+        'videos': videos
+    })
+
+@app.route('/admin/preview/image/<session_id>/<filename>')
+def admin_preview_image(session_id, filename):
+    """Serve image preview for admin"""
+    token = request.headers.get('Authorization')
+    if not verify_admin_token(token):
+        return 'Unauthorized', 401
+
+    return send_from_directory(
+        os.path.join(app.config['UPLOAD_FOLDER'], session_id),
+        filename
+    )
+
+@app.route('/admin/preview/audio/<audio_id>')
+def admin_preview_audio(audio_id):
+    """Serve audio preview for admin"""
+    token = request.headers.get('Authorization')
+    if not verify_admin_token(token):
+        return 'Unauthorized', 401
+
+    # Find the audio file
+    audio_files = list(Path(app.config['AUDIO_FOLDER']).glob(f"{audio_id}.*"))
+    if audio_files:
+        return send_file(str(audio_files[0]))
+    return 'Not found', 404
+
+@app.route('/admin/preview/video/<video_id>')
+def admin_preview_video(video_id):
+    """Serve video preview for admin"""
+    token = request.headers.get('Authorization')
+    if not verify_admin_token(token):
+        return 'Unauthorized', 401
+
+    video_files = list(Path(app.config['OUTPUT_FOLDER']).glob(f"{video_id}.*"))
+    if video_files:
+        return send_file(str(video_files[0]))
+    return 'Not found', 404
+
+@app.route('/admin/download/audio/<audio_id>')
+def admin_download_audio(audio_id):
+    """Download audio file"""
+    token = request.headers.get('Authorization')
+    if not verify_admin_token(token):
+        return 'Unauthorized', 401
+
+    audio_files = list(Path(app.config['AUDIO_FOLDER']).glob(f"{audio_id}.*"))
+    if audio_files:
+        return send_file(str(audio_files[0]), as_attachment=True)
+    return 'Not found', 404
+
+@app.route('/admin/delete/session/<session_id>', methods=['DELETE'])
+def admin_delete_session(session_id):
+    """Delete an image session"""
+    token = request.headers.get('Authorization')
+    if not verify_admin_token(token):
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    session_path = os.path.join(app.config['UPLOAD_FOLDER'], session_id)
+    if os.path.exists(session_path):
+        shutil.rmtree(session_path)
+        return jsonify({'success': True})
+    return jsonify({'error': 'Session not found'}), 404
+
+@app.route('/admin/delete/audio/<audio_id>', methods=['DELETE'])
+def admin_delete_audio(audio_id):
+    """Delete an audio file"""
+    token = request.headers.get('Authorization')
+    if not verify_admin_token(token):
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    # Delete audio file and its trim info
+    deleted = False
+    audio_files = list(Path(app.config['AUDIO_FOLDER']).glob(f"{audio_id}.*"))
+    for audio_file in audio_files:
+        os.remove(str(audio_file))
+        deleted = True
+
+    # Delete trim info if exists
+    trim_file = os.path.join(app.config['AUDIO_FOLDER'], f"{audio_id}_trim.json")
+    if os.path.exists(trim_file):
+        os.remove(trim_file)
+
+    if deleted:
+        return jsonify({'success': True})
+    return jsonify({'error': 'Audio not found'}), 404
+
+@app.route('/admin/delete/video/<video_id>', methods=['DELETE'])
+def admin_delete_video(video_id):
+    """Delete a video file"""
+    token = request.headers.get('Authorization')
+    if not verify_admin_token(token):
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    video_files = list(Path(app.config['OUTPUT_FOLDER']).glob(f"{video_id}.*"))
+    if video_files:
+        for video_file in video_files:
+            os.remove(str(video_file))
+        return jsonify({'success': True})
+    return jsonify({'error': 'Video not found'}), 404
+
+@app.route('/admin/cleanup', methods=['POST'])
+def admin_cleanup():
+    """Clean up old files (older than 1 hour)"""
+    token = request.headers.get('Authorization')
+    if not verify_admin_token(token):
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    deleted_count = 0
+    current_time = time.time()
+
+    # Clean uploads, audio, and output folders
+    for folder in [app.config['UPLOAD_FOLDER'], app.config['AUDIO_FOLDER'], app.config['OUTPUT_FOLDER']]:
+        if os.path.exists(folder):
+            for item in os.listdir(folder):
+                item_path = os.path.join(folder, item)
+                try:
+                    if os.path.getmtime(item_path) < current_time - 3600:  # 1 hour old
+                        if os.path.isfile(item_path):
+                            os.remove(item_path)
+                            deleted_count += 1
+                        elif os.path.isdir(item_path):
+                            shutil.rmtree(item_path)
+                            deleted_count += 1
+                except:
+                    pass
+
+    return jsonify({'success': True, 'deleted_count': deleted_count})
+
 if __name__ == '__main__':
     # Get port from environment variable for Railway/production
     port = int(os.environ.get('PORT', 5000))
