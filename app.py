@@ -25,7 +25,7 @@ except ImportError:
     MOVIEPY_AVAILABLE = False
     print("Warning: MoviePy not properly installed. Video generation may not work.")
 import yt_dlp
-from PIL import Image
+from PIL import Image, ExifTags
 import numpy as np
 
 app = Flask(__name__)
@@ -49,6 +49,40 @@ for folder in ['uploads', 'output', 'audio', 'static']:
 
 def allowed_file(filename, extensions):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in extensions
+
+def fix_image_orientation(img):
+    """Fix image orientation based on EXIF data"""
+    try:
+        # Get EXIF data
+        exif = img._getexif()
+        if exif is None:
+            return img
+
+        # Find orientation tag
+        orientation_key = None
+        for key, value in ExifTags.TAGS.items():
+            if value == 'Orientation':
+                orientation_key = key
+                break
+
+        if orientation_key is None:
+            return img
+
+        orientation = exif.get(orientation_key)
+
+        # Apply rotation based on orientation
+        if orientation == 3:
+            img = img.rotate(180, expand=True)
+        elif orientation == 6:
+            img = img.rotate(270, expand=True)
+        elif orientation == 8:
+            img = img.rotate(90, expand=True)
+
+    except (AttributeError, KeyError, IndexError):
+        # No EXIF data or orientation info
+        pass
+
+    return img
 
 def clean_old_files():
     """Clean files older than 1 hour"""
@@ -222,6 +256,10 @@ def generate_video():
         for img_path in image_files:
             # Load and resize image
             img = Image.open(img_path)
+
+            # Fix orientation based on EXIF data
+            img = fix_image_orientation(img)
+
             img = img.convert('RGB')
 
             # Calculate scaling to fit within resolution while maintaining aspect ratio
