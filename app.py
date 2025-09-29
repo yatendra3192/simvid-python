@@ -13,6 +13,8 @@ from datetime import datetime
 
 from flask import Flask, render_template, request, jsonify, send_file, url_for, send_from_directory, Response
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from werkzeug.utils import secure_filename
 import signal
 import threading
@@ -30,6 +32,14 @@ import numpy as np
 
 app = Flask(__name__)
 CORS(app)
+
+# Initialize rate limiter
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://",  # Use Redis in production for distributed systems
+)
 
 # Configuration
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB max file size
@@ -64,6 +74,23 @@ for folder in [app.config['UPLOAD_FOLDER'], app.config['OUTPUT_FOLDER'], app.con
 
 def allowed_file(filename, extensions):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in extensions
+
+def is_valid_uuid(uuid_string):
+    """Validate UUID format to prevent path traversal"""
+    import re
+    uuid_pattern = re.compile(r'^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$', re.IGNORECASE)
+    return bool(uuid_pattern.match(str(uuid_string)))
+
+def safe_join_path(base_path, *paths):
+    """Safely join paths and prevent directory traversal attacks"""
+    final_path = os.path.abspath(os.path.join(base_path, *paths))
+    base_path = os.path.abspath(base_path)
+
+    # Ensure the final path is within the base path
+    if not final_path.startswith(base_path):
+        raise ValueError("Invalid path: directory traversal detected")
+
+    return final_path
 
 def fix_image_orientation(img):
     """Fix image orientation based on EXIF data"""
@@ -103,19 +130,32 @@ def clean_old_files():
     """Clean files older than 1 hour"""
     import time
     current_time = time.time()
+    deleted_count = 0
 
-    for folder in ['uploads', 'output', 'audio']:
+    # Use configured folder paths (not hardcoded)
+    for folder in [app.config['UPLOAD_FOLDER'], app.config['OUTPUT_FOLDER'], app.config['AUDIO_FOLDER']]:
         if os.path.exists(folder):
-            for filename in os.listdir(folder):
-                filepath = os.path.join(folder, filename)
-                if os.path.getmtime(filepath) < current_time - 3600:  # 1 hour
-                    try:
-                        if os.path.isfile(filepath):
-                            os.remove(filepath)
-                        elif os.path.isdir(filepath):
-                            shutil.rmtree(filepath)
-                    except:
-                        pass
+            try:
+                for filename in os.listdir(folder):
+                    filepath = os.path.join(folder, filename)
+                    # Check if file/folder is older than 1 hour
+                    if os.path.getmtime(filepath) < current_time - 3600:
+                        try:
+                            if os.path.isfile(filepath):
+                                os.remove(filepath)
+                                deleted_count += 1
+                            elif os.path.isdir(filepath):
+                                shutil.rmtree(filepath)
+                                deleted_count += 1
+                        except Exception as e:
+                            print(f"Error deleting {filepath}: {e}")
+            except Exception as e:
+                print(f"Error accessing folder {folder}: {e}")
+
+    if deleted_count > 0:
+        print(f"🗑️ Cleaned up {deleted_count} old files/folders")
+
+    return deleted_count
 
 @app.route('/')
 def index():
@@ -188,6 +228,7 @@ def upload_audio():
     return jsonify({'error': 'Invalid audio file'}), 400
 
 @app.route('/download_youtube', methods=['POST'])
+@limiter.limit("10 per hour")  # Limit YouTube downloads
 def download_youtube():
     """Download audio from YouTube URL with optional time trimming"""
     data = request.get_json()
@@ -197,6 +238,41 @@ def download_youtube():
 
     if not url:
         return jsonify({'error': 'No URL provided'}), 400
+
+    # Validate URL format (basic check)
+    if not url.startswith(('http://', 'https://')):
+        return jsonify({'error': 'Invalid URL format'}), 400
+
+    # Validate YouTube URL
+    valid_domains = ['youtube.com', 'youtu.be', 'www.youtube.com', 'm.youtube.com']
+    from urllib.parse import urlparse
+    try:
+        parsed_url = urlparse(url)
+        if not any(domain in parsed_url.netloc for domain in valid_domains):
+            return jsonify({'error': 'Only YouTube URLs are supported'}), 400
+    except Exception:
+        return jsonify({'error': 'Invalid URL'}), 400
+
+    # Validate time parameters if provided
+    if start_time is not None:
+        try:
+            start_time = float(start_time)
+            if start_time < 0 or start_time > 7200:  # Max 2 hours
+                return jsonify({'error': 'Start time must be between 0 and 7200 seconds'}), 400
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Invalid start time'}), 400
+
+    if end_time is not None:
+        try:
+            end_time = float(end_time)
+            if end_time < 0 or end_time > 7200:  # Max 2 hours
+                return jsonify({'error': 'End time must be between 0 and 7200 seconds'}), 400
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Invalid end time'}), 400
+
+    # Validate start < end
+    if start_time is not None and end_time is not None and start_time >= end_time:
+        return jsonify({'error': 'Start time must be less than end time'}), 400
 
     audio_id = str(uuid.uuid4())
     output_path = os.path.join(app.config['AUDIO_FOLDER'], audio_id)
@@ -282,6 +358,7 @@ def download_youtube():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/generate_video', methods=['POST'])
+@limiter.limit("5 per hour")  # Limit video generation to prevent abuse
 def generate_video():
     """Generate slideshow video from images with optional audio"""
     data = request.get_json()
@@ -292,8 +369,29 @@ def generate_video():
     transition = data.get('transition', 'fade')
     resolution = data.get('resolution', '1280x720')
 
+    # Validate session ID
     if not session_id:
         return jsonify({'error': 'No session ID provided'}), 400
+
+    if not is_valid_uuid(session_id):
+        return jsonify({'error': 'Invalid session ID format'}), 400
+
+    # Validate audio ID if provided
+    if audio_id and not is_valid_uuid(audio_id):
+        return jsonify({'error': 'Invalid audio ID format'}), 400
+
+    # Validate duration (0.5 - 10 seconds per image)
+    try:
+        duration_per_image = float(duration_per_image)
+        if duration_per_image < 0.5 or duration_per_image > 10:
+            return jsonify({'error': 'Duration must be between 0.5 and 10 seconds'}), 400
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Invalid duration value'}), 400
+
+    # Validate resolution (whitelist)
+    valid_resolutions = ['640x480', '854x480', '1280x720', '1920x1080', '2560x1440', '3840x2160']
+    if resolution not in valid_resolutions:
+        return jsonify({'error': f'Invalid resolution. Must be one of: {", ".join(valid_resolutions)}'}), 400
 
     # Parse resolution
     width, height = map(int, resolution.split('x'))
@@ -361,6 +459,13 @@ def generate_video():
 
         # Concatenate all clips
         final_video = concatenate_videoclips(clips, method="compose")
+
+        # Close individual clips to free memory
+        for clip in clips:
+            try:
+                clip.close()
+            except:
+                pass
 
         # Add audio if provided
         if audio_id:
@@ -448,6 +553,13 @@ def generate_video():
                     import traceback
                     traceback.print_exc()
                     # Continue without audio
+                finally:
+                    # Always close audio clip to free memory
+                    if 'audio_clip' in locals():
+                        try:
+                            audio_clip.close()
+                        except:
+                            pass
 
         # Generate output filename
         output_id = str(uuid.uuid4())
@@ -468,29 +580,44 @@ def generate_video():
             bitrate = "2500k"
 
         # Write video file with optimized settings
-        final_video.write_videofile(
-            output_path,
-            fps=30,
-            codec='libx264',
-            audio_codec='aac',
-            bitrate=bitrate,
-            preset='medium',  # Balance between speed and compression
-            temp_audiofile='temp-audio.m4a',
-            remove_temp=True,
-            logger=None  # Disable moviepy console output
-        )
+        try:
+            final_video.write_videofile(
+                output_path,
+                fps=30,
+                codec='libx264',
+                audio_codec='aac',
+                bitrate=bitrate,
+                preset='medium',  # Balance between speed and compression
+                temp_audiofile='temp-audio.m4a',
+                remove_temp=True,
+                logger=None  # Disable moviepy console output
+            )
 
-        # Clean up
-        final_video.close()
-
-        return jsonify({
-            'success': True,
-            'video_id': output_id,
-            'filename': output_filename,
-            'download_url': f'/download/{output_id}'
-        })
+            return jsonify({
+                'success': True,
+                'video_id': output_id,
+                'filename': output_filename,
+                'download_url': f'/download/{output_id}'
+            })
+        finally:
+            # Always clean up video resources
+            try:
+                final_video.close()
+            except:
+                pass
 
     except Exception as e:
+        # Clean up on error
+        import traceback
+        traceback.print_exc()
+
+        # Remove partial files if they exist
+        if 'output_path' in locals() and os.path.exists(output_path):
+            try:
+                os.remove(output_path)
+            except:
+                pass
+
         return jsonify({'error': str(e)}), 500
 
 @app.route('/download/<video_id>')
@@ -531,41 +658,59 @@ DATABASE_URL = os.environ.get('DATABASE_URL', None)
 admin_tokens = {}  # Fallback in-memory storage
 
 # Initialize database if available
+db_pool = None
 if DATABASE_URL:
     try:
         import psycopg2
+        from psycopg2 import pool
         from urllib.parse import urlparse
 
         # Parse DATABASE_URL
         parsed = urlparse(DATABASE_URL)
 
+        # Create connection pool (reuse connections instead of creating new ones)
+        db_pool = pool.ThreadedConnectionPool(
+            minconn=1,
+            maxconn=10,  # Max 10 connections (Railway free tier has 22 limit)
+            host=parsed.hostname,
+            port=parsed.port,
+            database=parsed.path[1:],
+            user=parsed.username,
+            password=parsed.password,
+            sslmode='require'
+        )
+
         def get_db_connection():
-            return psycopg2.connect(
-                host=parsed.hostname,
-                port=parsed.port,
-                database=parsed.path[1:],
-                user=parsed.username,
-                password=parsed.password,
-                sslmode='require'
-            )
+            """Get connection from pool"""
+            if db_pool:
+                return db_pool.getconn()
+            return None
+
+        def release_db_connection(conn):
+            """Return connection to pool"""
+            if db_pool and conn:
+                db_pool.putconn(conn)
 
         # Create admin_tokens table if not exists
         conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS admin_tokens (
-                token VARCHAR(64) PRIMARY KEY,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        conn.commit()
-        cur.close()
-        conn.close()
+        try:
+            cur = conn.cursor()
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS admin_tokens (
+                    token VARCHAR(64) PRIMARY KEY,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            conn.commit()
+            cur.close()
+            print("✅ Connected to PostgreSQL with connection pooling for admin sessions")
+        finally:
+            release_db_connection(conn)
 
-        print("✅ Connected to PostgreSQL for admin sessions")
     except Exception as e:
         print(f"⚠️ Database connection failed, using in-memory tokens: {e}")
         DATABASE_URL = None
+        db_pool = None
 else:
     print("⚠️ No DATABASE_URL found, using in-memory admin tokens (will reset on restart)")
 
@@ -575,18 +720,21 @@ def generate_token():
 
 def store_admin_token(token):
     """Store admin token (in database if available)"""
-    if DATABASE_URL:
+    if DATABASE_URL and db_pool:
+        conn = None
         try:
             conn = get_db_connection()
             cur = conn.cursor()
             cur.execute("INSERT INTO admin_tokens (token) VALUES (%s)", (token,))
             conn.commit()
             cur.close()
-            conn.close()
         except Exception as e:
             print(f"Error storing token in DB: {e}")
             # Fallback to in-memory
             admin_tokens[token] = time.time()
+        finally:
+            if conn:
+                release_db_connection(conn)
     else:
         admin_tokens[token] = time.time()
 
@@ -595,7 +743,8 @@ def verify_admin_token(token):
     if not token:
         return False
 
-    if DATABASE_URL:
+    if DATABASE_URL and db_pool:
+        conn = None
         try:
             conn = get_db_connection()
             cur = conn.cursor()
@@ -607,12 +756,14 @@ def verify_admin_token(token):
             """, (token,))
             result = cur.fetchone()
             cur.close()
-            conn.close()
             return result is not None
         except Exception as e:
             print(f"Error verifying token in DB: {e}")
             # Fallback to in-memory
             pass
+        finally:
+            if conn:
+                release_db_connection(conn)
 
     # Fallback to in-memory check
     if token in admin_tokens:
@@ -625,16 +776,19 @@ def verify_admin_token(token):
 
 def cleanup_expired_tokens():
     """Remove expired tokens from database"""
-    if DATABASE_URL:
+    if DATABASE_URL and db_pool:
+        conn = None
         try:
             conn = get_db_connection()
             cur = conn.cursor()
             cur.execute("DELETE FROM admin_tokens WHERE created_at < NOW() - INTERVAL '24 hours'")
             conn.commit()
             cur.close()
-            conn.close()
         except Exception as e:
             print(f"Error cleaning expired tokens: {e}")
+        finally:
+            if conn:
+                release_db_connection(conn)
 
 @app.route('/admin')
 def admin_page():
@@ -642,6 +796,7 @@ def admin_page():
     return render_template('admin.html')
 
 @app.route('/admin/login', methods=['POST'])
+@limiter.limit("5 per 15 minutes")  # Prevent brute force attacks
 def admin_login():
     """Admin login endpoint"""
     data = request.get_json()
@@ -777,10 +932,26 @@ def admin_preview_image(session_id, filename):
     if not verify_admin_token(token):
         return 'Unauthorized', 401
 
-    return send_from_directory(
-        os.path.join(app.config['UPLOAD_FOLDER'], session_id),
-        filename
-    )
+    # Validate UUID to prevent path traversal
+    if not is_valid_uuid(session_id):
+        return 'Invalid session ID', 400
+
+    # Sanitize filename
+    filename = secure_filename(filename)
+    if not filename:
+        return 'Invalid filename', 400
+
+    try:
+        # Safely construct path
+        file_path = safe_join_path(app.config['UPLOAD_FOLDER'], session_id, filename)
+
+        # Check file exists
+        if not os.path.isfile(file_path):
+            return 'File not found', 404
+
+        return send_file(file_path)
+    except ValueError as e:
+        return str(e), 400
 
 @app.route('/admin/preview/audio/<audio_id>')
 def admin_preview_audio(audio_id):
@@ -793,18 +964,32 @@ def admin_preview_audio(audio_id):
     if not verify_admin_token(token):
         return 'Unauthorized', 401
 
-    # Find the audio file
-    audio_files = list(Path(app.config['AUDIO_FOLDER']).glob(f"{audio_id}.*"))
-    if audio_files:
-        # Return with proper MIME type and headers for browser playback
-        audio_path = str(audio_files[0])
-        response = send_file(audio_path)
+    # Validate UUID to prevent path traversal
+    if not is_valid_uuid(audio_id):
+        return 'Invalid audio ID', 400
 
-        # Add CORS headers for audio playback
+    # Find the audio file (only in configured audio folder)
+    audio_folder = Path(app.config['AUDIO_FOLDER'])
+    audio_files = list(audio_folder.glob(f"{audio_id}.*"))
+
+    if audio_files:
+        audio_path = str(audio_files[0])
+
+        # Verify file is actually in the audio folder (prevent symlink attacks)
+        try:
+            real_path = os.path.realpath(audio_path)
+            real_folder = os.path.realpath(str(audio_folder))
+            if not real_path.startswith(real_folder):
+                return 'Invalid file path', 400
+        except Exception:
+            return 'Error validating path', 500
+
+        # Return with proper MIME type and headers for browser playback
+        response = send_file(audio_path)
         response.headers['Accept-Ranges'] = 'bytes'
         response.headers['Access-Control-Allow-Origin'] = '*'
-
         return response
+
     return 'Not found', 404
 
 @app.route('/admin/preview/video/<video_id>')
@@ -818,18 +1003,33 @@ def admin_preview_video(video_id):
     if not verify_admin_token(token):
         return 'Unauthorized', 401
 
-    video_files = list(Path(app.config['OUTPUT_FOLDER']).glob(f"{video_id}.*"))
-    if video_files:
-        # Return with proper MIME type and headers for browser playback
-        video_path = str(video_files[0])
-        response = send_file(video_path)
+    # Validate UUID to prevent path traversal
+    if not is_valid_uuid(video_id):
+        return 'Invalid video ID', 400
 
-        # Add headers for video playback and seeking
+    # Find video file (only in configured output folder)
+    output_folder = Path(app.config['OUTPUT_FOLDER'])
+    video_files = list(output_folder.glob(f"{video_id}.*"))
+
+    if video_files:
+        video_path = str(video_files[0])
+
+        # Verify file is actually in the output folder (prevent symlink attacks)
+        try:
+            real_path = os.path.realpath(video_path)
+            real_folder = os.path.realpath(str(output_folder))
+            if not real_path.startswith(real_folder):
+                return 'Invalid file path', 400
+        except Exception:
+            return 'Error validating path', 500
+
+        # Return with proper MIME type and headers for browser playback
+        response = send_file(video_path)
         response.headers['Accept-Ranges'] = 'bytes'
         response.headers['Access-Control-Allow-Origin'] = '*'
         response.headers['Content-Type'] = 'video/mp4'
-
         return response
+
     return 'Not found', 404
 
 @app.route('/admin/download/audio/<audio_id>')
@@ -851,11 +1051,20 @@ def admin_delete_session(session_id):
     if not verify_admin_token(token):
         return jsonify({'error': 'Unauthorized'}), 401
 
-    session_path = os.path.join(app.config['UPLOAD_FOLDER'], session_id)
-    if os.path.exists(session_path):
-        shutil.rmtree(session_path)
-        return jsonify({'success': True})
-    return jsonify({'error': 'Session not found'}), 404
+    # Validate UUID to prevent path traversal
+    if not is_valid_uuid(session_id):
+        return jsonify({'error': 'Invalid session ID'}), 400
+
+    try:
+        # Safely construct path
+        session_path = safe_join_path(app.config['UPLOAD_FOLDER'], session_id)
+
+        if os.path.exists(session_path) and os.path.isdir(session_path):
+            shutil.rmtree(session_path)
+            return jsonify({'success': True})
+        return jsonify({'error': 'Session not found'}), 404
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
 
 @app.route('/admin/delete/audio/<audio_id>', methods=['DELETE'])
 def admin_delete_audio(audio_id):
@@ -864,17 +1073,33 @@ def admin_delete_audio(audio_id):
     if not verify_admin_token(token):
         return jsonify({'error': 'Unauthorized'}), 401
 
+    # Validate UUID to prevent path traversal
+    if not is_valid_uuid(audio_id):
+        return jsonify({'error': 'Invalid audio ID'}), 400
+
     # Delete audio file and its trim info
     deleted = False
-    audio_files = list(Path(app.config['AUDIO_FOLDER']).glob(f"{audio_id}.*"))
+    audio_folder = Path(app.config['AUDIO_FOLDER'])
+    audio_files = list(audio_folder.glob(f"{audio_id}.*"))
+
     for audio_file in audio_files:
-        os.remove(str(audio_file))
-        deleted = True
+        # Verify file is in audio folder
+        try:
+            real_path = os.path.realpath(str(audio_file))
+            real_folder = os.path.realpath(str(audio_folder))
+            if real_path.startswith(real_folder):
+                os.remove(str(audio_file))
+                deleted = True
+        except Exception:
+            pass
 
     # Delete trim info if exists
-    trim_file = os.path.join(app.config['AUDIO_FOLDER'], f"{audio_id}_trim.json")
-    if os.path.exists(trim_file):
-        os.remove(trim_file)
+    try:
+        trim_file = safe_join_path(app.config['AUDIO_FOLDER'], f"{audio_id}_trim.json")
+        if os.path.exists(trim_file):
+            os.remove(trim_file)
+    except ValueError:
+        pass
 
     if deleted:
         return jsonify({'success': True})
@@ -887,10 +1112,23 @@ def admin_delete_video(video_id):
     if not verify_admin_token(token):
         return jsonify({'error': 'Unauthorized'}), 401
 
-    video_files = list(Path(app.config['OUTPUT_FOLDER']).glob(f"{video_id}.*"))
+    # Validate UUID to prevent path traversal
+    if not is_valid_uuid(video_id):
+        return jsonify({'error': 'Invalid video ID'}), 400
+
+    output_folder = Path(app.config['OUTPUT_FOLDER'])
+    video_files = list(output_folder.glob(f"{video_id}.*"))
+
     if video_files:
         for video_file in video_files:
-            os.remove(str(video_file))
+            # Verify file is in output folder
+            try:
+                real_path = os.path.realpath(str(video_file))
+                real_folder = os.path.realpath(str(output_folder))
+                if real_path.startswith(real_folder):
+                    os.remove(str(video_file))
+            except Exception:
+                pass
         return jsonify({'success': True})
     return jsonify({'error': 'Video not found'}), 404
 
