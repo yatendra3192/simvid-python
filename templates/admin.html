@@ -416,6 +416,9 @@
         function checkAuth() {
             const token = localStorage.getItem('adminToken');
             if (token) {
+                // Set cookie for media file access
+                document.cookie = `adminToken=${token}; path=/; max-age=86400; SameSite=Strict`;
+
                 fetch('/admin/verify', {
                     headers: { 'Authorization': token }
                 })
@@ -462,6 +465,8 @@
                 const data = await response.json();
                 if (data.success) {
                     localStorage.setItem('adminToken', data.token);
+                    // Also set as cookie for media files
+                    document.cookie = `adminToken=${data.token}; path=/; max-age=86400; SameSite=Strict`;
                     showDashboard();
                 } else {
                     document.getElementById('loginError').textContent = data.error || 'Invalid password';
@@ -568,8 +573,8 @@
                     <div class="file-info">💾 ${formatSize(audio.size)}</div>
                     ${audio.trimmed ? '<div class="file-info">✂️ Trimmed</div>' : ''}
                     <audio controls class="audio-player" preload="metadata">
-                        <source src="/admin/preview/audio/${audio.id}?token=${localStorage.getItem('adminToken')}" type="audio/webm">
-                        <source src="/admin/preview/audio/${audio.id}?token=${localStorage.getItem('adminToken')}" type="audio/mpeg">
+                        <source src="/admin/preview/audio/${audio.id}" type="audio/webm">
+                        <source src="/admin/preview/audio/${audio.id}" type="audio/mpeg">
                         Your browser does not support audio playback.
                     </audio>
                     <div class="file-actions">
@@ -594,7 +599,7 @@
                     <div class="file-info">📅 ${formatDate(video.created)}</div>
                     <div class="file-info">💾 ${formatSize(video.size)}</div>
                     <video controls class="video-preview" preload="metadata">
-                        <source src="/admin/preview/video/${video.id}?token=${localStorage.getItem('adminToken')}" type="video/mp4">
+                        <source src="/admin/preview/video/${video.id}" type="video/mp4">
                         Your browser does not support video playback.
                     </video>
                     <div class="file-actions">

@@ -785,28 +785,51 @@ def admin_preview_image(session_id, filename):
 @app.route('/admin/preview/audio/<audio_id>')
 def admin_preview_audio(audio_id):
     """Serve audio preview for admin"""
-    # Accept token from header or query parameter
-    token = request.headers.get('Authorization') or request.args.get('token')
+    # Accept token from header, query parameter, or cookie
+    token = (request.headers.get('Authorization') or
+             request.args.get('token') or
+             request.cookies.get('adminToken'))
+
     if not verify_admin_token(token):
         return 'Unauthorized', 401
 
     # Find the audio file
     audio_files = list(Path(app.config['AUDIO_FOLDER']).glob(f"{audio_id}.*"))
     if audio_files:
-        return send_file(str(audio_files[0]))
+        # Return with proper MIME type and headers for browser playback
+        audio_path = str(audio_files[0])
+        response = send_file(audio_path)
+
+        # Add CORS headers for audio playback
+        response.headers['Accept-Ranges'] = 'bytes'
+        response.headers['Access-Control-Allow-Origin'] = '*'
+
+        return response
     return 'Not found', 404
 
 @app.route('/admin/preview/video/<video_id>')
 def admin_preview_video(video_id):
     """Serve video preview for admin"""
-    # Accept token from header or query parameter
-    token = request.headers.get('Authorization') or request.args.get('token')
+    # Accept token from header, query parameter, or cookie
+    token = (request.headers.get('Authorization') or
+             request.args.get('token') or
+             request.cookies.get('adminToken'))
+
     if not verify_admin_token(token):
         return 'Unauthorized', 401
 
     video_files = list(Path(app.config['OUTPUT_FOLDER']).glob(f"{video_id}.*"))
     if video_files:
-        return send_file(str(video_files[0]))
+        # Return with proper MIME type and headers for browser playback
+        video_path = str(video_files[0])
+        response = send_file(video_path)
+
+        # Add headers for video playback and seeking
+        response.headers['Accept-Ranges'] = 'bytes'
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Content-Type'] = 'video/mp4'
+
+        return response
     return 'Not found', 404
 
 @app.route('/admin/download/audio/<audio_id>')
