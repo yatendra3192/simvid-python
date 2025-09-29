@@ -6,7 +6,7 @@ This worker processes video generation jobs from the Redis queue
 import os
 import sys
 from redis import Redis
-from rq import Worker, Queue, Connection
+from rq import Worker, Queue
 
 # Get Redis URL from environment
 redis_url = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
@@ -18,9 +18,15 @@ redis_conn = Redis.from_url(redis_url)
 listen = ['video_generation', 'default']
 
 if __name__ == '__main__':
-    with Connection(redis_conn):
-        worker = Worker(list(map(Queue, listen)))
-        print(f"🚀 RQ Worker starting...")
-        print(f"📡 Connected to Redis: {redis_url}")
-        print(f"📋 Listening on queues: {', '.join(listen)}")
-        worker.work()
+    # Create queues with connection
+    queues = [Queue(name, connection=redis_conn) for name in listen]
+
+    # Create worker
+    worker = Worker(queues, connection=redis_conn)
+
+    print(f"🚀 RQ Worker starting...")
+    print(f"📡 Connected to Redis: {redis_url}")
+    print(f"📋 Listening on queues: {', '.join(listen)}")
+
+    # Start working
+    worker.work()
