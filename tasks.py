@@ -147,13 +147,40 @@ def generate_video_job(job_id, session_id, audio_id, duration, transition, resol
                 # Load and fix orientation
                 img = Image.open(img_path)
                 img = fix_image_orientation(img)
+                img = img.convert('RGB')
 
-                # Create temporary file with fixed orientation
+                # Get target resolution
+                width, height = map(int, resolution.split('x'))
+
+                # Calculate scaling to fit within resolution while maintaining aspect ratio
+                img_ratio = img.width / img.height
+                video_ratio = width / height
+
+                if img_ratio > video_ratio:
+                    # Image is wider - fit to width
+                    new_width = width
+                    new_height = int(width / img_ratio)
+                else:
+                    # Image is taller - fit to height
+                    new_height = height
+                    new_width = int(height * img_ratio)
+
+                # Resize image maintaining aspect ratio
+                img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+                # Create black background at target resolution
+                background = Image.new('RGB', (width, height), (0, 0, 0))
+
+                # Center the resized image on background (letterboxing)
+                x = (width - new_width) // 2
+                y = (height - new_height) // 2
+                background.paste(img, (x, y))
+
+                # Save to temporary file
                 temp_path = img_path + '.temp.jpg'
-                img.save(temp_path, 'JPEG')
-                img.close()
+                background.save(temp_path, 'JPEG')
 
-                # Create clip from fixed image
+                # Create clip from processed image
                 clip = ImageClip(temp_path, duration=duration)
 
                 # Note: Transitions are complex in MoviePy 2.x, skipping for now
@@ -211,17 +238,14 @@ def generate_video_job(job_id, session_id, audio_id, duration, transition, resol
             else:
                 print(f"[{job_id}] Warning: Audio file not found: {audio_path}")
 
-        # Set resolution (MoviePy 2.x uses resized with new_size parameter)
-        update_progress(job_id, 'resizing', 75, f'Setting resolution to {resolution}...')
-        print(f"[{job_id}] Setting resolution to {resolution}")
-        width, height = map(int, resolution.split('x'))
-        final_video = final_video.resized(new_size=(width, height))
+        # Resolution is already set correctly for each image (letterboxed)
+        # No need to resize the final video
 
         # Generate output path
         output_path = safe_join_path(OUTPUT_FOLDER, f"{job_id}.mp4")
 
         # Write video file
-        update_progress(job_id, 'encoding', 80, 'Encoding video file...')
+        update_progress(job_id, 'encoding', 75, 'Encoding video file...')
         print(f"[{job_id}] Encoding video to {output_path}...")
         final_video.write_videofile(
             output_path,
