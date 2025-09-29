@@ -6,7 +6,13 @@ These tasks run in RQ workers
 import os
 import uuid
 from datetime import datetime
-from moviepy.editor import ImageClip, AudioFileClip, concatenate_videoclips
+# MoviePy 2.x compatible imports
+try:
+    from moviepy import ImageClip, AudioFileClip, concatenate_videoclips, concatenate_audioclips
+except ImportError:
+    # Fallback for MoviePy 1.x
+    from moviepy.editor import ImageClip, AudioFileClip, concatenate_videoclips
+    from moviepy.audio.AudioClip import concatenate_audioclips
 from PIL import Image
 import json
 
