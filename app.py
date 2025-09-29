@@ -990,6 +990,8 @@ def job_status(job_id):
                 response['result'] = result
                 if result and result.get('success'):
                     response['download_url'] = result.get('download_url')
+                    response['video_id'] = result.get('video_id')
+                    response['file_size'] = result.get('file_size')
 
             elif job.is_failed:
                 response['stage'] = 'error'
