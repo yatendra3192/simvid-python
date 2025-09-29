@@ -611,8 +611,8 @@ def generate_video():
             # Enqueue the job with the generated job_id
             job = video_queue.enqueue(
                 generate_video_job,
-                job_id=job_id,
-                args=(job_id, session_id, audio_id, duration_per_image, transition, resolution),
+                job_id, session_id, audio_id, duration_per_image, transition, resolution,
+                job_id=job_id,  # Set RQ job_id to match our job_id
                 job_timeout='30m',  # 30 minutes max
                 result_ttl=3600  # Keep results for 1 hour
             )
