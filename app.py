@@ -57,9 +57,10 @@ app.config['REQUEST_TIMEOUT'] = 300  # 5 minute timeout
 ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'}
 ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'wav', 'm4a', 'aac', 'ogg', 'webm', 'opus'}
 
-# Create necessary folders
-for folder in ['uploads', 'output', 'audio', 'static']:
+# Create necessary folders (using the configured paths)
+for folder in [app.config['UPLOAD_FOLDER'], app.config['OUTPUT_FOLDER'], app.config['AUDIO_FOLDER'], 'static']:
     os.makedirs(folder, exist_ok=True)
+    print(f"✅ Created/verified folder: {folder}")
 
 def allowed_file(filename, extensions):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in extensions
