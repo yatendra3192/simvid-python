@@ -15,6 +15,7 @@ except ImportError:
     from moviepy.audio.AudioClip import concatenate_audioclips
 from PIL import Image
 import json
+from redis import Redis
 
 # Import configuration from app
 # Match app.py folder configuration logic
@@ -33,6 +34,35 @@ else:
 # Create folders if they don't exist
 for folder in [UPLOAD_FOLDER, AUDIO_FOLDER, OUTPUT_FOLDER]:
     os.makedirs(folder, exist_ok=True)
+
+# Redis connection for progress updates
+redis_conn = None
+redis_url = os.environ.get('REDIS_URL')
+if redis_url:
+    try:
+        redis_conn = Redis.from_url(redis_url, decode_responses=True)
+        print("[Worker] ✅ Connected to Redis for progress updates")
+    except Exception as e:
+        print(f"[Worker] ⚠️ Failed to connect to Redis: {e}")
+
+def update_progress(job_id, stage, progress, message=""):
+    """Update job progress in Redis"""
+    if redis_conn:
+        try:
+            progress_data = {
+                'stage': stage,
+                'progress': progress,
+                'message': message,
+                'timestamp': datetime.now().isoformat()
+            }
+            redis_conn.setex(
+                f"job_progress:{job_id}",
+                3600,  # Expire after 1 hour
+                json.dumps(progress_data)
+            )
+            print(f"[{job_id}] Progress: {stage} - {progress}% - {message}")
+        except Exception as e:
+            print(f"[{job_id}] Failed to update progress: {e}")
 
 
 def safe_join_path(base_path, *paths):
@@ -88,12 +118,14 @@ def generate_video_job(job_id, session_id, audio_id, duration, transition, resol
     try:
         print(f"[{job_id}] Starting video generation...")
         print(f"[{job_id}] Session: {session_id}, Duration: {duration}s, Resolution: {resolution}")
+        update_progress(job_id, 'initializing', 5, 'Starting video generation...')
 
         # Get image files
         image_files = get_image_files(session_id)
         total_images = len(image_files)
 
         if total_images == 0:
+            update_progress(job_id, 'error', 0, 'No images found')
             return {
                 'success': False,
                 'error': 'No images found for this session',
@@ -102,11 +134,13 @@ def generate_video_job(job_id, session_id, audio_id, duration, transition, resol
             }
 
         print(f"[{job_id}] Found {total_images} images")
+        update_progress(job_id, 'processing', 10, f'Found {total_images} images')
 
         # Update progress: Processing images
         clips = []
         for idx, img_path in enumerate(image_files):
             progress = 10 + int((idx / total_images) * 50)
+            update_progress(job_id, 'processing', progress, f'Processing image {idx + 1}/{total_images}')
             print(f"[{job_id}] Processing image {idx + 1}/{total_images} ({progress}%)")
 
             try:
@@ -144,11 +178,13 @@ def generate_video_job(job_id, session_id, audio_id, duration, transition, resol
             }
 
         # Concatenate clips
+        update_progress(job_id, 'concatenating', 60, f'Combining {len(clips)} clips...')
         print(f"[{job_id}] Concatenating {len(clips)} clips...")
         final_video = concatenate_videoclips(clips, method="compose")
 
         # Add audio if provided
         if audio_id:
+            update_progress(job_id, 'audio', 70, 'Adding background music...')
             print(f"[{job_id}] Adding audio: {audio_id}")
             audio_path = safe_join_path(AUDIO_FOLDER, f"{audio_id}.webm")
 
@@ -176,6 +212,7 @@ def generate_video_job(job_id, session_id, audio_id, duration, transition, resol
                 print(f"[{job_id}] Warning: Audio file not found: {audio_path}")
 
         # Set resolution (MoviePy 2.x uses resized with new_size parameter)
+        update_progress(job_id, 'resizing', 75, f'Setting resolution to {resolution}...')
         print(f"[{job_id}] Setting resolution to {resolution}")
         width, height = map(int, resolution.split('x'))
         final_video = final_video.resized(new_size=(width, height))
@@ -184,6 +221,7 @@ def generate_video_job(job_id, session_id, audio_id, duration, transition, resol
         output_path = safe_join_path(OUTPUT_FOLDER, f"{job_id}.mp4")
 
         # Write video file
+        update_progress(job_id, 'encoding', 80, 'Encoding video file...')
         print(f"[{job_id}] Encoding video to {output_path}...")
         final_video.write_videofile(
             output_path,
@@ -209,7 +247,7 @@ def generate_video_job(job_id, session_id, audio_id, duration, transition, resol
 
         print(f"[{job_id}] ✅ Video generation complete! Size: {file_size} bytes")
 
-        return {
+        result = {
             'success': True,
             'video_id': job_id,
             'video_path': output_path,
@@ -220,9 +258,14 @@ def generate_video_job(job_id, session_id, audio_id, duration, transition, resol
             'message': 'Video generation complete!'
         }
 
+        update_progress(job_id, 'completed', 100, 'Video ready for download!')
+
+        return result
+
     except Exception as e:
         error_msg = str(e)
         print(f"[{job_id}] ❌ Error: {error_msg}")
+        update_progress(job_id, 'error', 0, f'Error: {error_msg}')
         return {
             'success': False,
             'error': error_msg,

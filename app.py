@@ -147,13 +147,27 @@ def safe_join_path(base_path, *paths):
     return final_path
 
 def update_progress(job_id, stage, progress, message=""):
-    """Update progress for a video generation job"""
-    video_progress[job_id] = {
+    """Update progress for a video generation job - stored in Redis for worker access"""
+    progress_data = {
         'stage': stage,
         'progress': progress,
         'message': message,
         'timestamp': datetime.now().isoformat()
     }
+
+    # Store in Redis if available (for background worker communication)
+    if redis_conn:
+        try:
+            redis_conn.setex(
+                f"job_progress:{job_id}",
+                3600,  # Expire after 1 hour
+                json.dumps(progress_data)
+            )
+        except Exception as e:
+            app.logger.warning(f"Failed to store progress in Redis: {e}")
+
+    # Also store in memory for backward compatibility
+    video_progress[job_id] = progress_data
     app.logger.info(f"Job {job_id}: {stage} - {progress}% - {message}")
 
 def fix_image_orientation(img):
@@ -248,8 +262,19 @@ def get_progress(job_id):
                 yield f"data: {json.dumps({'error': 'Timeout'})}\n\n"
                 break
 
-            # Get current progress
-            current_progress = video_progress.get(job_id)
+            # Get current progress from Redis first (for background worker), fallback to memory
+            current_progress = None
+            if redis_conn:
+                try:
+                    progress_json = redis_conn.get(f"job_progress:{job_id}")
+                    if progress_json:
+                        current_progress = json.loads(progress_json)
+                except Exception as e:
+                    app.logger.warning(f"Failed to read progress from Redis: {e}")
+
+            # Fallback to in-memory storage
+            if not current_progress:
+                current_progress = video_progress.get(job_id)
 
             # Send update if progress changed and is not None
             if current_progress and current_progress != last_progress:
