@@ -64,7 +64,7 @@ limiter = Limiter(
 
 # Configure logging
 if not os.path.exists('logs'):
-    os.makedirs('logs')
+    os.makedirs('logs', exist_ok=True)
 
 # Create formatters
 file_formatter = logging.Formatter(
