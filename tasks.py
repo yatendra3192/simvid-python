@@ -231,7 +231,7 @@ def generate_video_job(job_id, session_id, audio_id, duration, transition, resol
                         audio_clips = [audio_clip] * loops_needed
                         audio_clip = concatenate_audioclips(audio_clips).subclipped(0, video_duration)
 
-                    final_video = final_video.set_audio(audio_clip)
+                    final_video = final_video.with_audio(audio_clip)
                     print(f"[{job_id}] Audio added successfully")
                 except Exception as e:
                     print(f"[{job_id}] Warning: Could not add audio: {e}")
