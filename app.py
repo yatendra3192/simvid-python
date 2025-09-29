@@ -251,13 +251,13 @@ def get_progress(job_id):
             # Get current progress
             current_progress = video_progress.get(job_id)
 
-            # Send update if progress changed
-            if current_progress != last_progress:
+            # Send update if progress changed and is not None
+            if current_progress and current_progress != last_progress:
                 yield f"data: {json.dumps(current_progress)}\n\n"
                 last_progress = current_progress
 
                 # If completed or error, close stream
-                if current_progress and current_progress.get('stage') in ['completed', 'error']:
+                if current_progress.get('stage') in ['completed', 'error']:
                     break
 
             # Wait before next check
