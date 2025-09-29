@@ -718,9 +718,11 @@
                             if (progress.stage === 'completed') {
                                 showStatus('progressStatus', 'success', '✅ Video generated successfully!');
 
-                                // Fetch video info and display
-                                document.getElementById('videoPlayer').src = data.download_url;
-                                document.getElementById('downloadLink').href = data.download_url;
+                                // Fetch video info and display using job_id
+                                const videoId = data.job_id; // Use job_id as video_id
+                                const downloadUrl = `/download/${videoId}`;
+                                document.getElementById('videoPlayer').src = downloadUrl;
+                                document.getElementById('downloadLink').href = downloadUrl;
                                 document.getElementById('videoResult').style.display = 'block';
 
                                 eventSource.close();
