@@ -33,9 +33,23 @@ CORS(app)
 
 # Configuration
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB max file size
-app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['OUTPUT_FOLDER'] = 'output'
-app.config['AUDIO_FOLDER'] = 'audio'
+
+# Use Railway volume if available, otherwise use local folders
+# Railway only allows one volume per service, so we organize everything under /data
+RAILWAY_VOLUME = os.environ.get('RAILWAY_VOLUME_MOUNT_PATH', None)
+if RAILWAY_VOLUME:
+    # Production: Use Railway volume
+    app.config['UPLOAD_FOLDER'] = os.path.join(RAILWAY_VOLUME, 'uploads')
+    app.config['OUTPUT_FOLDER'] = os.path.join(RAILWAY_VOLUME, 'output')
+    app.config['AUDIO_FOLDER'] = os.path.join(RAILWAY_VOLUME, 'audio')
+    print(f"✅ Using Railway volume: {RAILWAY_VOLUME}")
+else:
+    # Development: Use local folders
+    app.config['UPLOAD_FOLDER'] = 'uploads'
+    app.config['OUTPUT_FOLDER'] = 'output'
+    app.config['AUDIO_FOLDER'] = 'audio'
+    print("⚠️ No Railway volume found, using local folders")
+
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0  # Disable caching for development
 app.config['REQUEST_TIMEOUT'] = 300  # 5 minute timeout
 
@@ -510,16 +524,96 @@ import time
 
 # Admin configuration
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')  # Change this in production!
-admin_tokens = {}  # Store valid tokens
+
+# Database setup for admin tokens (persistent across restarts)
+DATABASE_URL = os.environ.get('DATABASE_URL', None)
+admin_tokens = {}  # Fallback in-memory storage
+
+# Initialize database if available
+if DATABASE_URL:
+    try:
+        import psycopg2
+        from urllib.parse import urlparse
+
+        # Parse DATABASE_URL
+        parsed = urlparse(DATABASE_URL)
+
+        def get_db_connection():
+            return psycopg2.connect(
+                host=parsed.hostname,
+                port=parsed.port,
+                database=parsed.path[1:],
+                user=parsed.username,
+                password=parsed.password,
+                sslmode='require'
+            )
+
+        # Create admin_tokens table if not exists
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS admin_tokens (
+                token VARCHAR(64) PRIMARY KEY,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        print("✅ Connected to PostgreSQL for admin sessions")
+    except Exception as e:
+        print(f"⚠️ Database connection failed, using in-memory tokens: {e}")
+        DATABASE_URL = None
+else:
+    print("⚠️ No DATABASE_URL found, using in-memory admin tokens (will reset on restart)")
 
 def generate_token():
     """Generate a secure random token"""
     return secrets.token_hex(32)
 
+def store_admin_token(token):
+    """Store admin token (in database if available)"""
+    if DATABASE_URL:
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute("INSERT INTO admin_tokens (token) VALUES (%s)", (token,))
+            conn.commit()
+            cur.close()
+            conn.close()
+        except Exception as e:
+            print(f"Error storing token in DB: {e}")
+            # Fallback to in-memory
+            admin_tokens[token] = time.time()
+    else:
+        admin_tokens[token] = time.time()
+
 def verify_admin_token(token):
     """Verify if the provided token is valid"""
     if not token:
         return False
+
+    if DATABASE_URL:
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            # Check if token exists and is not expired (24 hours)
+            cur.execute("""
+                SELECT created_at FROM admin_tokens
+                WHERE token = %s
+                AND created_at > NOW() - INTERVAL '24 hours'
+            """, (token,))
+            result = cur.fetchone()
+            cur.close()
+            conn.close()
+            return result is not None
+        except Exception as e:
+            print(f"Error verifying token in DB: {e}")
+            # Fallback to in-memory
+            pass
+
+    # Fallback to in-memory check
     if token in admin_tokens:
         # Check if token is not expired (24 hours)
         if time.time() - admin_tokens[token] < 86400:
@@ -527,6 +621,19 @@ def verify_admin_token(token):
         else:
             del admin_tokens[token]
     return False
+
+def cleanup_expired_tokens():
+    """Remove expired tokens from database"""
+    if DATABASE_URL:
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute("DELETE FROM admin_tokens WHERE created_at < NOW() - INTERVAL '24 hours'")
+            conn.commit()
+            cur.close()
+            conn.close()
+        except Exception as e:
+            print(f"Error cleaning expired tokens: {e}")
 
 @app.route('/admin')
 def admin_page():
@@ -541,7 +648,8 @@ def admin_login():
 
     if password == ADMIN_PASSWORD:
         token = generate_token()
-        admin_tokens[token] = time.time()
+        store_admin_token(token)  # Store in DB or memory
+        cleanup_expired_tokens()  # Clean old tokens
         return jsonify({'success': True, 'token': token})
     return jsonify({'success': False, 'error': 'Invalid password'}), 401
 
