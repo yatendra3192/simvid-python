@@ -17,9 +17,18 @@ from PIL import Image
 import json
 
 # Import configuration from app
-UPLOAD_FOLDER = os.environ.get('RAILWAY_VOLUME_MOUNT_PATH', '.') + '/uploads' if os.environ.get('RAILWAY_VOLUME_MOUNT_PATH') else 'uploads'
-AUDIO_FOLDER = os.environ.get('RAILWAY_VOLUME_MOUNT_PATH', '.') + '/audio' if os.environ.get('RAILWAY_VOLUME_MOUNT_PATH') else 'audio'
-OUTPUT_FOLDER = os.environ.get('RAILWAY_VOLUME_MOUNT_PATH', '.') + '/output' if os.environ.get('RAILWAY_VOLUME_MOUNT_PATH') else 'output'
+# Match app.py folder configuration logic
+RAILWAY_VOLUME = os.environ.get('RAILWAY_VOLUME_MOUNT_PATH')
+if RAILWAY_VOLUME:
+    UPLOAD_FOLDER = os.path.join(RAILWAY_VOLUME, 'uploads')
+    AUDIO_FOLDER = os.path.join(RAILWAY_VOLUME, 'audio')
+    OUTPUT_FOLDER = os.path.join(RAILWAY_VOLUME, 'output')
+    print(f"✅ [Worker] Using Railway volume: {RAILWAY_VOLUME}")
+else:
+    UPLOAD_FOLDER = 'uploads'
+    AUDIO_FOLDER = 'audio'
+    OUTPUT_FOLDER = 'output'
+    print("⚠️ [Worker] No Railway volume found, using local folders")
 
 # Create folders if they don't exist
 for folder in [UPLOAD_FOLDER, AUDIO_FOLDER, OUTPUT_FOLDER]:
