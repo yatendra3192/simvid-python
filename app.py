@@ -772,7 +772,8 @@ def admin_data():
 @app.route('/admin/preview/image/<session_id>/<filename>')
 def admin_preview_image(session_id, filename):
     """Serve image preview for admin"""
-    token = request.headers.get('Authorization')
+    # Accept token from header or query parameter
+    token = request.headers.get('Authorization') or request.args.get('token')
     if not verify_admin_token(token):
         return 'Unauthorized', 401
 
@@ -784,7 +785,8 @@ def admin_preview_image(session_id, filename):
 @app.route('/admin/preview/audio/<audio_id>')
 def admin_preview_audio(audio_id):
     """Serve audio preview for admin"""
-    token = request.headers.get('Authorization')
+    # Accept token from header or query parameter
+    token = request.headers.get('Authorization') or request.args.get('token')
     if not verify_admin_token(token):
         return 'Unauthorized', 401
 
@@ -797,7 +799,8 @@ def admin_preview_audio(audio_id):
 @app.route('/admin/preview/video/<video_id>')
 def admin_preview_video(video_id):
     """Serve video preview for admin"""
-    token = request.headers.get('Authorization')
+    # Accept token from header or query parameter
+    token = request.headers.get('Authorization') or request.args.get('token')
     if not verify_admin_token(token):
         return 'Unauthorized', 401
 
