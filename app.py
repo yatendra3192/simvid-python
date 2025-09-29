@@ -8,6 +8,8 @@ import json
 import uuid
 import shutil
 import tempfile
+import logging
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from datetime import datetime
 
@@ -40,6 +42,39 @@ limiter = Limiter(
     default_limits=["200 per day", "50 per hour"],
     storage_uri="memory://",  # Use Redis in production for distributed systems
 )
+
+# Configure logging
+if not os.path.exists('logs'):
+    os.makedirs('logs')
+
+# Create formatters
+file_formatter = logging.Formatter(
+    '[%(asctime)s] %(levelname)s in %(module)s: %(message)s'
+)
+console_formatter = logging.Formatter(
+    '%(levelname)s: %(message)s'
+)
+
+# File handler - rotating logs (10MB max, keep 5 backups)
+file_handler = RotatingFileHandler(
+    'logs/aiezzy_simvid.log',
+    maxBytes=10485760,  # 10MB
+    backupCount=5
+)
+file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(file_formatter)
+
+# Console handler
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+console_handler.setFormatter(console_formatter)
+
+# Configure app logger
+app.logger.addHandler(file_handler)
+app.logger.addHandler(console_handler)
+app.logger.setLevel(logging.INFO)
+
+app.logger.info('Aiezzy Simvid application starting up')
 
 # Configuration
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB max file size
@@ -161,37 +196,126 @@ def clean_old_files():
 def index():
     return render_template('index.html')
 
+def optimize_image(image_path, max_dimension=1920, quality=85):
+    """
+    Optimize uploaded image to reduce size and improve performance
+    - Resize to max dimension while maintaining aspect ratio
+    - Compress to JPEG at specified quality
+    - Fix EXIF orientation
+    """
+    try:
+        img = Image.open(image_path)
+
+        # Fix orientation
+        img = fix_image_orientation(img)
+
+        # Convert to RGB (handles PNG, RGBA, etc.)
+        if img.mode != 'RGB':
+            img = img.convert('RGB')
+
+        # Get original dimensions
+        width, height = img.size
+        original_size = os.path.getsize(image_path)
+
+        # Resize if larger than max dimension
+        if width > max_dimension or height > max_dimension:
+            if width > height:
+                new_width = max_dimension
+                new_height = int((max_dimension / width) * height)
+            else:
+                new_height = max_dimension
+                new_width = int((max_dimension / height) * width)
+
+            img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            print(f"Resized from {width}x{height} to {new_width}x{new_height}")
+
+        # Save optimized version
+        img.save(image_path, 'JPEG', quality=quality, optimize=True)
+        new_size = os.path.getsize(image_path)
+
+        reduction = ((original_size - new_size) / original_size) * 100
+        print(f"Optimized: {original_size} -> {new_size} bytes ({reduction:.1f}% reduction)")
+
+        img.close()
+        return True
+    except Exception as e:
+        print(f"Error optimizing image {image_path}: {e}")
+        return False
+
 @app.route('/upload_images', methods=['POST'])
+@limiter.limit("20 per hour")  # Limit uploads
 def upload_images():
-    """Handle multiple image uploads"""
+    """Handle multiple image uploads with optimization"""
     if 'images' not in request.files:
         return jsonify({'error': 'No images provided'}), 400
 
     files = request.files.getlist('images')
+
+    # Limit number of images
+    if len(files) > 50:
+        return jsonify({'error': 'Maximum 50 images allowed per upload'}), 400
+
     session_id = str(uuid.uuid4())
     session_folder = os.path.join(app.config['UPLOAD_FOLDER'], session_id)
     os.makedirs(session_folder, exist_ok=True)
 
     uploaded_files = []
+    total_original_size = 0
+    total_optimized_size = 0
 
     for file in files:
         if file and allowed_file(file.filename, ALLOWED_IMAGE_EXTENSIONS):
             filename = secure_filename(file.filename)
+
+            # Change extension to .jpg (since we're converting to JPEG)
+            base_name = os.path.splitext(filename)[0]
+            filename = f"{base_name}.jpg"
+
             filepath = os.path.join(session_folder, filename)
-            file.save(filepath)
-            uploaded_files.append({
-                'filename': filename,
-                'path': filepath
-            })
+
+            # Save temporarily
+            temp_path = filepath + '.tmp'
+            file.save(temp_path)
+            original_size = os.path.getsize(temp_path)
+
+            # Optimize image
+            if optimize_image(temp_path, max_dimension=1920, quality=85):
+                os.rename(temp_path, filepath)
+                optimized_size = os.path.getsize(filepath)
+                total_original_size += original_size
+                total_optimized_size += optimized_size
+
+                uploaded_files.append({
+                    'filename': filename,
+                    'path': filepath,
+                    'original_size': original_size,
+                    'optimized_size': optimized_size
+                })
+            else:
+                # If optimization fails, use original
+                os.rename(temp_path, filepath)
+                uploaded_files.append({
+                    'filename': filename,
+                    'path': filepath
+                })
 
     if not uploaded_files:
         return jsonify({'error': 'No valid images uploaded'}), 400
+
+    reduction_percent = 0
+    if total_original_size > 0:
+        reduction_percent = ((total_original_size - total_optimized_size) / total_original_size) * 100
 
     return jsonify({
         'success': True,
         'session_id': session_id,
         'images': uploaded_files,
-        'count': len(uploaded_files)
+        'count': len(uploaded_files),
+        'optimization': {
+            'original_size': total_original_size,
+            'optimized_size': total_optimized_size,
+            'reduction_percent': round(reduction_percent, 1)
+        }
     })
 
 @app.route('/upload_audio', methods=['POST'])
@@ -607,16 +731,16 @@ def generate_video():
                 pass
 
     except Exception as e:
-        # Clean up on error
-        import traceback
-        traceback.print_exc()
+        # Log error with full traceback
+        app.logger.error(f"Video generation failed for session {session_id}: {str(e)}", exc_info=True)
 
         # Remove partial files if they exist
         if 'output_path' in locals() and os.path.exists(output_path):
             try:
                 os.remove(output_path)
-            except:
-                pass
+                app.logger.info(f"Cleaned up partial file: {output_path}")
+            except Exception as cleanup_error:
+                app.logger.warning(f"Failed to cleanup partial file {output_path}: {cleanup_error}")
 
         return jsonify({'error': str(e)}), 500
 
@@ -801,12 +925,16 @@ def admin_login():
     """Admin login endpoint"""
     data = request.get_json()
     password = data.get('password', '')
+    ip_address = request.remote_addr
 
     if password == ADMIN_PASSWORD:
         token = generate_token()
         store_admin_token(token)  # Store in DB or memory
         cleanup_expired_tokens()  # Clean old tokens
+        app.logger.info(f"Admin login successful from IP: {ip_address}")
         return jsonify({'success': True, 'token': token})
+
+    app.logger.warning(f"Failed admin login attempt from IP: {ip_address}")
     return jsonify({'success': False, 'error': 'Invalid password'}), 401
 
 @app.route('/admin/verify')
