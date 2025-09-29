@@ -213,9 +213,16 @@ def generate_video_job(job_id, session_id, audio_id, duration, transition, resol
         if audio_id:
             update_progress(job_id, 'audio', 70, 'Adding background music...')
             print(f"[{job_id}] Adding audio: {audio_id}")
-            audio_path = safe_join_path(AUDIO_FOLDER, f"{audio_id}.webm")
 
-            if os.path.exists(audio_path):
+            # Find audio file with any extension (YouTube downloads can be .webm, .m4a, .opus, etc.)
+            import glob
+            audio_files = glob.glob(os.path.join(AUDIO_FOLDER, f"{audio_id}.*"))
+            # Filter out trim info files
+            audio_files = [f for f in audio_files if not f.endswith('_trim.json')]
+
+            if audio_files:
+                audio_path = audio_files[0]
+                print(f"[{job_id}] Found audio file: {os.path.basename(audio_path)}")
                 try:
                     audio_clip = AudioFileClip(audio_path)
                     video_duration = final_video.duration
@@ -236,7 +243,7 @@ def generate_video_job(job_id, session_id, audio_id, duration, transition, resol
                 except Exception as e:
                     print(f"[{job_id}] Warning: Could not add audio: {e}")
             else:
-                print(f"[{job_id}] Warning: Audio file not found: {audio_path}")
+                print(f"[{job_id}] Warning: Audio file not found for audio_id: {audio_id}")
 
         # Resolution is already set correctly for each image (letterboxed)
         # No need to resize the final video
