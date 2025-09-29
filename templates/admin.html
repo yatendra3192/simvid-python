@@ -346,6 +346,118 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        /* Pagination Controls */
+        .pagination-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .pagination-controls button {
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .pagination-controls button:hover:not(:disabled) {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+
+        .pagination-controls button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .pagination-info {
+            font-weight: 600;
+            color: #333;
+            min-width: 150px;
+            text-align: center;
+        }
+
+        .page-numbers {
+            display: flex;
+            gap: 5px;
+        }
+
+        .page-number {
+            padding: 8px 12px;
+            background: white;
+            border: 2px solid #667eea;
+            color: #667eea;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .page-number:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .page-number.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .page-number.ellipsis {
+            border: none;
+            cursor: default;
+            color: #999;
+        }
+
+        .page-number.ellipsis:hover {
+            background: white;
+            color: #999;
+        }
+
+        /* Sort Controls */
+        .sort-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sort-controls label {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .sort-controls select {
+            padding: 8px 12px;
+            border: 2px solid #667eea;
+            border-radius: 6px;
+            background: white;
+            color: #333;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .sort-controls select:hover {
+            border-color: #5a67d8;
+            background: #f8f9fa;
+        }
+
+        .sort-controls select:focus {
+            outline: none;
+            border-color: #5a67d8;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
     </style>
 </head>
 <body>
@@ -404,26 +516,70 @@
 
                 <!-- Images Tab -->
                 <div id="imagesTab" class="tab-content">
-                    <h2>Uploaded Image Sessions</h2>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h2 style="margin: 0;">Uploaded Image Sessions</h2>
+                        <div class="sort-controls">
+                            <label>Sort by:</label>
+                            <select id="imagesSort" onchange="sortFiles('images', this.value)">
+                                <option value="date-desc">Date (Newest First)</option>
+                                <option value="date-asc">Date (Oldest First)</option>
+                                <option value="size-desc">Size (Largest First)</option>
+                                <option value="size-asc">Size (Smallest First)</option>
+                                <option value="count-desc">Image Count (Most)</option>
+                                <option value="count-asc">Image Count (Least)</option>
+                            </select>
+                        </div>
+                    </div>
                     <div id="imagesList" class="file-grid">
                         <div class="loading">Loading images...</div>
                     </div>
+                    <div id="imagesPagination" class="pagination-controls"></div>
                 </div>
 
                 <!-- Audio Tab -->
                 <div id="audioTab" class="tab-content" style="display: none;">
-                    <h2>Downloaded Audio Files</h2>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h2 style="margin: 0;">Downloaded Audio Files</h2>
+                        <div class="sort-controls">
+                            <label>Sort by:</label>
+                            <select id="audioSort" onchange="sortFiles('audio', this.value)">
+                                <option value="date-desc">Date (Newest First)</option>
+                                <option value="date-asc">Date (Oldest First)</option>
+                                <option value="size-desc">Size (Largest First)</option>
+                                <option value="size-asc">Size (Smallest First)</option>
+                                <option value="duration-desc">Duration (Longest)</option>
+                                <option value="duration-asc">Duration (Shortest)</option>
+                                <option value="name-asc">Name (A-Z)</option>
+                                <option value="name-desc">Name (Z-A)</option>
+                            </select>
+                        </div>
+                    </div>
                     <div id="audioList" class="file-grid">
                         <div class="loading">Loading audio files...</div>
                     </div>
+                    <div id="audioPagination" class="pagination-controls"></div>
                 </div>
 
                 <!-- Videos Tab -->
                 <div id="videosTab" class="tab-content" style="display: none;">
-                    <h2>Generated Videos</h2>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h2 style="margin: 0;">Generated Videos</h2>
+                        <div class="sort-controls">
+                            <label>Sort by:</label>
+                            <select id="videosSort" onchange="sortFiles('videos', this.value)">
+                                <option value="date-desc">Date (Newest First)</option>
+                                <option value="date-asc">Date (Oldest First)</option>
+                                <option value="size-desc">Size (Largest First)</option>
+                                <option value="size-asc">Size (Smallest First)</option>
+                                <option value="name-asc">Name (A-Z)</option>
+                                <option value="name-desc">Name (Z-A)</option>
+                            </select>
+                        </div>
+                    </div>
                     <div id="videosList" class="file-grid">
                         <div class="loading">Loading videos...</div>
                     </div>
+                    <div id="videosPagination" class="pagination-controls"></div>
                 </div>
             </div>
         </div>
@@ -435,6 +591,14 @@
             images: [],
             audio: [],
             videos: []
+        };
+
+        // Pagination state
+        const ITEMS_PER_PAGE = 20;
+        let pagination = {
+            images: { currentPage: 1, totalPages: 1 },
+            audio: { currentPage: 1, totalPages: 1 },
+            videos: { currentPage: 1, totalPages: 1 }
         };
 
         // Check if already authenticated
@@ -570,15 +734,25 @@
             }
         }
 
-        function displayImages(sessions) {
+        function displayImages(sessions, page = 1) {
             const container = document.getElementById('imagesList');
 
             if (!sessions || sessions.length === 0) {
                 container.innerHTML = '<div class="empty-state">No image uploads found</div>';
+                document.getElementById('imagesPagination').innerHTML = '';
                 return;
             }
 
-            container.innerHTML = sessions.map(session => `
+            // Calculate pagination
+            const totalPages = Math.ceil(sessions.length / ITEMS_PER_PAGE);
+            const startIdx = (page - 1) * ITEMS_PER_PAGE;
+            const endIdx = startIdx + ITEMS_PER_PAGE;
+            const paginatedSessions = sessions.slice(startIdx, endIdx);
+
+            // Update pagination state
+            pagination.images = { currentPage: page, totalPages: totalPages };
+
+            container.innerHTML = paginatedSessions.map(session => `
                 <div class="session-folder" data-search="${session.session_id}">
                     <div class="session-id">Session: ${session.session_id}</div>
                     <div class="file-info">📅 ${formatDate(session.created)}</div>
@@ -602,17 +776,30 @@
                     </div>
                 </div>
             `).join('');
+
+            // Render pagination controls
+            renderPagination('images', sessions.length);
         }
 
-        function displayAudio(audioFiles) {
+        function displayAudio(audioFiles, page = 1) {
             const container = document.getElementById('audioList');
 
             if (!audioFiles || audioFiles.length === 0) {
                 container.innerHTML = '<div class="empty-state">No audio files found</div>';
+                document.getElementById('audioPagination').innerHTML = '';
                 return;
             }
 
-            container.innerHTML = audioFiles.map(audio => `
+            // Calculate pagination
+            const totalPages = Math.ceil(audioFiles.length / ITEMS_PER_PAGE);
+            const startIdx = (page - 1) * ITEMS_PER_PAGE;
+            const endIdx = startIdx + ITEMS_PER_PAGE;
+            const paginatedAudio = audioFiles.slice(startIdx, endIdx);
+
+            // Update pagination state
+            pagination.audio = { currentPage: page, totalPages: totalPages };
+
+            container.innerHTML = paginatedAudio.map(audio => `
                 <div class="file-card" data-search="${audio.name} ${audio.title || ''}">
                     <span class="file-type">${audio.source}</span>
                     <div class="file-name">${audio.name}</div>
@@ -632,17 +819,30 @@
                     </div>
                 </div>
             `).join('');
+
+            // Render pagination controls
+            renderPagination('audio', audioFiles.length);
         }
 
-        function displayVideos(videos) {
+        function displayVideos(videos, page = 1) {
             const container = document.getElementById('videosList');
 
             if (!videos || videos.length === 0) {
                 container.innerHTML = '<div class="empty-state">No generated videos found</div>';
+                document.getElementById('videosPagination').innerHTML = '';
                 return;
             }
 
-            container.innerHTML = videos.map(video => `
+            // Calculate pagination
+            const totalPages = Math.ceil(videos.length / ITEMS_PER_PAGE);
+            const startIdx = (page - 1) * ITEMS_PER_PAGE;
+            const endIdx = startIdx + ITEMS_PER_PAGE;
+            const paginatedVideos = videos.slice(startIdx, endIdx);
+
+            // Update pagination state
+            pagination.videos = { currentPage: page, totalPages: totalPages };
+
+            container.innerHTML = paginatedVideos.map(video => `
                 <div class="file-card" data-search="${video.name}">
                     <div class="file-name">${video.name}</div>
                     <div class="file-info">📅 ${formatDate(video.created)}</div>
@@ -657,6 +857,151 @@
                     </div>
                 </div>
             `).join('');
+
+            // Render pagination controls
+            renderPagination('videos', videos.length);
+        }
+
+        function renderPagination(type, totalItems) {
+            const paginationContainer = document.getElementById(`${type}Pagination`);
+            const state = pagination[type];
+
+            if (state.totalPages <= 1) {
+                paginationContainer.innerHTML = '';
+                return;
+            }
+
+            const startItem = (state.currentPage - 1) * ITEMS_PER_PAGE + 1;
+            const endItem = Math.min(state.currentPage * ITEMS_PER_PAGE, totalItems);
+
+            let html = `
+                <button onclick="changePage('${type}', ${state.currentPage - 1})" ${state.currentPage === 1 ? 'disabled' : ''}>
+                    ⬅️ Previous
+                </button>
+                <div class="pagination-info">
+                    ${startItem}-${endItem} of ${totalItems}
+                </div>
+                <div class="page-numbers">
+            `;
+
+            // Generate page numbers with ellipsis
+            const maxVisiblePages = 5;
+            let startPage = Math.max(1, state.currentPage - Math.floor(maxVisiblePages / 2));
+            let endPage = Math.min(state.totalPages, startPage + maxVisiblePages - 1);
+
+            if (endPage - startPage < maxVisiblePages - 1) {
+                startPage = Math.max(1, endPage - maxVisiblePages + 1);
+            }
+
+            if (startPage > 1) {
+                html += `<span class="page-number" onclick="changePage('${type}', 1)">1</span>`;
+                if (startPage > 2) {
+                    html += `<span class="page-number ellipsis">...</span>`;
+                }
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                html += `<span class="page-number ${i === state.currentPage ? 'active' : ''}"
+                         onclick="changePage('${type}', ${i})">${i}</span>`;
+            }
+
+            if (endPage < state.totalPages) {
+                if (endPage < state.totalPages - 1) {
+                    html += `<span class="page-number ellipsis">...</span>`;
+                }
+                html += `<span class="page-number" onclick="changePage('${type}', ${state.totalPages})">${state.totalPages}</span>`;
+            }
+
+            html += `
+                </div>
+                <button onclick="changePage('${type}', ${state.currentPage + 1})" ${state.currentPage === state.totalPages ? 'disabled' : ''}>
+                    Next ➡️
+                </button>
+            `;
+
+            paginationContainer.innerHTML = html;
+        }
+
+        function changePage(type, page) {
+            if (page < 1 || page > pagination[type].totalPages) return;
+
+            // Scroll to top of section
+            const tabMap = {
+                'images': 'imagesTab',
+                'audio': 'audioTab',
+                'videos': 'videosTab'
+            };
+            document.getElementById(tabMap[type]).scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            // Re-render with new page
+            if (type === 'images') {
+                displayImages(allFiles.images, page);
+            } else if (type === 'audio') {
+                displayAudio(allFiles.audio, page);
+            } else if (type === 'videos') {
+                displayVideos(allFiles.videos, page);
+            }
+
+            // Reload auth images if needed
+            if (type === 'images') {
+                setTimeout(() => loadAuthImages(), 100);
+            }
+        }
+
+        function sortFiles(type, sortBy) {
+            let items = [...allFiles[type]]; // Create a copy
+
+            const [field, order] = sortBy.split('-');
+
+            // Sort based on field
+            items.sort((a, b) => {
+                let valA, valB;
+
+                switch (field) {
+                    case 'date':
+                        valA = new Date(a.created);
+                        valB = new Date(b.created);
+                        break;
+                    case 'size':
+                        valA = a.total_size || a.size;
+                        valB = b.total_size || b.size;
+                        break;
+                    case 'count':
+                        valA = a.image_count || 0;
+                        valB = b.image_count || 0;
+                        break;
+                    case 'duration':
+                        valA = a.duration || 0;
+                        valB = b.duration || 0;
+                        break;
+                    case 'name':
+                        valA = (a.name || '').toLowerCase();
+                        valB = (b.name || '').toLowerCase();
+                        break;
+                    default:
+                        return 0;
+                }
+
+                // Compare values
+                if (valA < valB) return order === 'asc' ? -1 : 1;
+                if (valA > valB) return order === 'asc' ? 1 : -1;
+                return 0;
+            });
+
+            // Update allFiles with sorted data
+            allFiles[type] = items;
+
+            // Reset to page 1 and re-render
+            pagination[type].currentPage = 1;
+
+            if (type === 'images') {
+                displayImages(items, 1);
+                setTimeout(() => loadAuthImages(), 100);
+            } else if (type === 'audio') {
+                displayAudio(items, 1);
+            } else if (type === 'videos') {
+                displayVideos(items, 1);
+            }
         }
 
         function showTab(tabName) {

@@ -32,8 +32,27 @@ import yt_dlp
 from PIL import Image, ExifTags
 import numpy as np
 
+# Redis Queue imports
+from redis import Redis
+from rq import Queue
+from rq.job import Job
+
 app = Flask(__name__)
 CORS(app)
+
+# Initialize Redis connection and queue
+redis_url = os.environ.get('REDIS_URL', None)
+if redis_url:
+    redis_conn = Redis.from_url(redis_url)
+    video_queue = Queue('video_generation', connection=redis_conn)
+    print(f"✅ Connected to Redis Queue: {redis_url}")
+else:
+    redis_conn = None
+    video_queue = None
+    print("⚠️ No REDIS_URL found - running without queue (synchronous mode)")
+
+# Global dictionary to store progress for each video generation job
+video_progress = {}
 
 # Initialize rate limiter
 limiter = Limiter(
@@ -127,6 +146,16 @@ def safe_join_path(base_path, *paths):
 
     return final_path
 
+def update_progress(job_id, stage, progress, message=""):
+    """Update progress for a video generation job"""
+    video_progress[job_id] = {
+        'stage': stage,
+        'progress': progress,
+        'message': message,
+        'timestamp': datetime.now().isoformat()
+    }
+    app.logger.info(f"Job {job_id}: {stage} - {progress}% - {message}")
+
 def fix_image_orientation(img):
     """Fix image orientation based on EXIF data"""
     try:
@@ -195,6 +224,47 @@ def clean_old_files():
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/progress/<job_id>')
+def get_progress(job_id):
+    """Server-Sent Events endpoint for real-time progress updates"""
+    def generate():
+        # Validate job_id
+        if not is_valid_uuid(job_id):
+            yield f"data: {json.dumps({'error': 'Invalid job ID'})}\n\n"
+            return
+
+        # Send initial connection message
+        yield f"data: {json.dumps({'connected': True})}\n\n"
+
+        # Stream progress updates
+        last_progress = None
+        timeout = 600  # 10 minute timeout
+        start_time = datetime.now()
+
+        while True:
+            # Check timeout
+            if (datetime.now() - start_time).total_seconds() > timeout:
+                yield f"data: {json.dumps({'error': 'Timeout'})}\n\n"
+                break
+
+            # Get current progress
+            current_progress = video_progress.get(job_id)
+
+            # Send update if progress changed
+            if current_progress != last_progress:
+                yield f"data: {json.dumps(current_progress)}\n\n"
+                last_progress = current_progress
+
+                # If completed or error, close stream
+                if current_progress and current_progress.get('stage') in ['completed', 'error']:
+                    break
+
+            # Wait before next check
+            import time
+            time.sleep(0.5)
+
+    return Response(generate(), mimetype='text/event-stream')
 
 def optimize_image(image_path, max_dimension=1920, quality=85):
     """
@@ -484,7 +554,10 @@ def download_youtube():
 @app.route('/generate_video', methods=['POST'])
 @limiter.limit("5 per hour")  # Limit video generation to prevent abuse
 def generate_video():
-    """Generate slideshow video from images with optional audio"""
+    """
+    Generate slideshow video from images with optional audio
+    Uses RQ (Redis Queue) if available, otherwise falls back to synchronous processing
+    """
     data = request.get_json()
 
     session_id = data.get('session_id')
@@ -492,6 +565,84 @@ def generate_video():
     duration_per_image = float(data.get('duration', 2))
     transition = data.get('transition', 'fade')
     resolution = data.get('resolution', '1280x720')
+
+    # Generate job ID for progress tracking
+    job_id = str(uuid.uuid4())
+
+    # Validate session ID
+    if not session_id or not is_valid_uuid(session_id):
+        return jsonify({'error': 'Invalid session ID'}), 400
+
+    # Validate audio ID if provided
+    if audio_id and not is_valid_uuid(audio_id):
+        return jsonify({'error': 'Invalid audio ID format'}), 400
+
+    # Validate duration (0.5 - 10 seconds per image)
+    try:
+        duration_per_image = float(duration_per_image)
+        if duration_per_image < 0.5 or duration_per_image > 10:
+            return jsonify({'error': 'Duration must be between 0.5 and 10 seconds'}), 400
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Invalid duration value'}), 400
+
+    # Validate resolution (whitelist) - includes both landscape and portrait formats
+    valid_resolutions = [
+        '640x480', '854x480', '1280x720', '1920x1080', '2560x1440', '3840x2160',  # Landscape
+        '480x640', '480x854', '720x1280', '1080x1920', '1440x2560', '2160x3840'   # Portrait (Stories/Reels)
+    ]
+    if resolution not in valid_resolutions:
+        return jsonify({'error': f'Invalid resolution. Must be one of: {", ".join(valid_resolutions)}'}), 400
+
+    # Check if session has images
+    session_folder = os.path.join(app.config['UPLOAD_FOLDER'], session_id)
+    if not os.path.exists(session_folder):
+        return jsonify({'error': 'Session not found'}), 404
+
+    image_files = [f for f in os.listdir(session_folder) if allowed_file(f, ALLOWED_IMAGE_EXTENSIONS)]
+    if not image_files:
+        return jsonify({'error': 'No images found in session'}), 400
+
+    # If Redis Queue is available, enqueue the job
+    if video_queue:
+        try:
+            # Import the task function
+            from tasks import generate_video_job
+
+            # Enqueue the job with the generated job_id
+            job = video_queue.enqueue(
+                generate_video_job,
+                job_id=job_id,
+                args=(job_id, session_id, audio_id, duration_per_image, transition, resolution),
+                job_timeout='30m',  # 30 minutes max
+                result_ttl=3600  # Keep results for 1 hour
+            )
+
+            app.logger.info(f"✅ Enqueued video generation job: {job_id} (RQ Job: {job.id})")
+
+            return jsonify({
+                'success': True,
+                'job_id': job_id,
+                'message': 'Video generation started in background',
+                'status_url': f'/job_status/{job_id}',
+                'estimated_time': f'{len(image_files) * 2} seconds'
+            })
+
+        except Exception as e:
+            app.logger.error(f"Failed to enqueue job: {e}")
+            return jsonify({'error': f'Failed to start video generation: {str(e)}'}), 500
+
+    # Fallback to synchronous processing if Redis is not available
+    else:
+        app.logger.warning("⚠️ Redis not available, using synchronous processing")
+        return generate_video_sync(job_id, session_id, audio_id, duration_per_image, transition, resolution)
+
+
+def generate_video_sync(job_id, session_id, audio_id, duration_per_image, transition, resolution):
+    """
+    Synchronous video generation (fallback when Redis is not available)
+    This is the original implementation
+    """
+    update_progress(job_id, 'initializing', 0, 'Starting video generation...')
 
     # Validate session ID
     if not session_id:
@@ -512,8 +663,11 @@ def generate_video():
     except (ValueError, TypeError):
         return jsonify({'error': 'Invalid duration value'}), 400
 
-    # Validate resolution (whitelist)
-    valid_resolutions = ['640x480', '854x480', '1280x720', '1920x1080', '2560x1440', '3840x2160']
+    # Validate resolution (whitelist) - includes both landscape and portrait formats
+    valid_resolutions = [
+        '640x480', '854x480', '1280x720', '1920x1080', '2560x1440', '3840x2160',  # Landscape
+        '480x640', '480x854', '720x1280', '1080x1920', '1440x2560', '2160x3840'   # Portrait (Stories/Reels)
+    ]
     if resolution not in valid_resolutions:
         return jsonify({'error': f'Invalid resolution. Must be one of: {", ".join(valid_resolutions)}'}), 400
 
@@ -532,13 +686,20 @@ def generate_video():
     ])
 
     if not image_files:
+        update_progress(job_id, 'error', 0, 'No images found')
         return jsonify({'error': 'No images found'}), 400
+
+    update_progress(job_id, 'processing', 10, f'Found {len(image_files)} images')
 
     try:
         # Create video clips from images
         clips = []
+        total_images = len(image_files)
 
-        for img_path in image_files:
+        for idx, img_path in enumerate(image_files):
+            # Update progress for each image
+            progress = 10 + int((idx / total_images) * 50)  # 10-60%
+            update_progress(job_id, 'processing', progress, f'Processing image {idx + 1}/{total_images}')
             # Load and resize image
             img = Image.open(img_path)
 
@@ -582,6 +743,7 @@ def generate_video():
             clips.append(clip)
 
         # Concatenate all clips
+        update_progress(job_id, 'concatenating', 60, 'Combining images into video...')
         final_video = concatenate_videoclips(clips, method="compose")
 
         # Close individual clips to free memory
@@ -593,6 +755,7 @@ def generate_video():
 
         # Add audio if provided
         if audio_id:
+            update_progress(job_id, 'audio', 65, 'Adding audio to video...')
             audio_files = list(Path(app.config['AUDIO_FOLDER']).glob(f"{audio_id}.*"))
             if audio_files:
                 try:
@@ -705,6 +868,8 @@ def generate_video():
 
         # Write video file with optimized settings
         try:
+            update_progress(job_id, 'encoding', 75, 'Encoding video file (this may take a while)...')
+
             final_video.write_videofile(
                 output_path,
                 fps=30,
@@ -717,11 +882,23 @@ def generate_video():
                 logger=None  # Disable moviepy console output
             )
 
+            update_progress(job_id, 'completed', 100, 'Video generation complete!')
+
+            # Clean up progress after 1 minute
+            import threading
+            def cleanup_progress():
+                import time
+                time.sleep(60)
+                if job_id in video_progress:
+                    del video_progress[job_id]
+            threading.Thread(target=cleanup_progress, daemon=True).start()
+
             return jsonify({
                 'success': True,
                 'video_id': output_id,
                 'filename': output_filename,
-                'download_url': f'/download/{output_id}'
+                'download_url': f'/download/{output_id}',
+                'job_id': job_id
             })
         finally:
             # Always clean up video resources
@@ -734,6 +911,10 @@ def generate_video():
         # Log error with full traceback
         app.logger.error(f"Video generation failed for session {session_id}: {str(e)}", exc_info=True)
 
+        # Update progress with error
+        if 'job_id' in locals():
+            update_progress(job_id, 'error', 0, f'Error: {str(e)}')
+
         # Remove partial files if they exist
         if 'output_path' in locals() and os.path.exists(output_path):
             try:
@@ -742,7 +923,76 @@ def generate_video():
             except Exception as cleanup_error:
                 app.logger.warning(f"Failed to cleanup partial file {output_path}: {cleanup_error}")
 
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': str(e), 'job_id': locals().get('job_id')}), 500
+
+@app.route('/job_status/<job_id>')
+def job_status(job_id):
+    """
+    Check the status of a video generation job
+    Works with both RQ jobs and synchronous jobs
+    """
+    if not is_valid_uuid(job_id):
+        return jsonify({'error': 'Invalid job ID'}), 400
+
+    # If using RQ, get job status from Redis
+    if redis_conn:
+        try:
+            job = Job.fetch(job_id, connection=redis_conn)
+
+            response = {
+                'job_id': job_id,
+                'status': job.get_status(),
+                'created_at': job.created_at.isoformat() if job.created_at else None,
+                'started_at': job.started_at.isoformat() if job.started_at else None,
+                'ended_at': job.ended_at.isoformat() if job.ended_at else None,
+            }
+
+            # Add progress information based on status
+            if job.is_queued:
+                response['stage'] = 'queued'
+                response['progress'] = 0
+                response['message'] = 'Job is queued, waiting to start...'
+
+            elif job.is_started:
+                response['stage'] = 'processing'
+                response['progress'] = 50
+                response['message'] = 'Job is being processed...'
+
+            elif job.is_finished:
+                result = job.result
+                response['stage'] = 'completed'
+                response['progress'] = 100
+                response['result'] = result
+                if result and result.get('success'):
+                    response['download_url'] = result.get('download_url')
+
+            elif job.is_failed:
+                response['stage'] = 'error'
+                response['progress'] = 0
+                response['error'] = job.exc_info
+
+            return jsonify(response)
+
+        except Exception as e:
+            # Job not found in Redis, check synchronous progress
+            app.logger.debug(f"Job {job_id} not in RQ, checking sync progress: {e}")
+
+    # Fallback to in-memory progress tracking (for sync jobs)
+    if job_id in video_progress:
+        progress_data = video_progress[job_id]
+        return jsonify({
+            'job_id': job_id,
+            'status': 'processing' if progress_data['progress'] < 100 else 'completed',
+            **progress_data
+        })
+
+    # Job not found
+    return jsonify({
+        'job_id': job_id,
+        'status': 'not_found',
+        'error': 'Job not found'
+    }), 404
+
 
 @app.route('/download/<video_id>')
 def download_video(video_id):
