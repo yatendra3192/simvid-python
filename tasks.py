@@ -122,9 +122,9 @@ def generate_video_job(job_id, session_id, audio_id, duration, transition, resol
                 # Create clip from fixed image
                 clip = ImageClip(temp_path, duration=duration)
 
-                # Apply transition
+                # Apply transition (MoviePy 2.x uses fadein instead of crossfadein)
                 if transition == 'fade' and idx > 0:
-                    clip = clip.crossfadein(0.5)
+                    clip = clip.fadein(0.5)
 
                 clips.append(clip)
 
@@ -176,10 +176,10 @@ def generate_video_job(job_id, session_id, audio_id, duration, transition, resol
             else:
                 print(f"[{job_id}] Warning: Audio file not found: {audio_path}")
 
-        # Set resolution
+        # Set resolution (MoviePy 2.x uses resized instead of resize)
         print(f"[{job_id}] Setting resolution to {resolution}")
         width, height = map(int, resolution.split('x'))
-        final_video = final_video.resize(newsize=(width, height))
+        final_video = final_video.resized(newsize=(width, height))
 
         # Generate output path
         output_path = safe_join_path(OUTPUT_FOLDER, f"{job_id}.mp4")
