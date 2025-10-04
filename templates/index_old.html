@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SimVid Python - Slideshow Video Generator</title>
+    <script>
+        // Define these functions immediately so they're available for onclick handlers
+        function selectImages() {
+            console.log('selectImages called');
+            const input = document.getElementById('imageInput');
+            if (input) {
+                input.click();
+            } else {
+                console.error('Image input not found');
+            }
+        }
+
+        function processSelectedFiles(files) {
+            console.log('processSelectedFiles called with', files ? files.length : 0, 'files');
+            if (files && files.length > 0) {
+                // Call handleImageFiles when it's available
+                if (typeof handleImageFiles === 'function') {
+                    handleImageFiles(files).catch(err => {
+                        console.error('Error handling files:', err);
+                        alert('Error processing images. Please try again.');
+                    });
+                } else {
+                    // Store files to process later when handleImageFiles is ready
+                    window.pendingFiles = files;
+                    console.log('Stored files to process later');
+                }
+            }
+        }
+
+        function removeImage(button) {
+            button.parentElement.remove();
+        }
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .upload-area {
+            border: 3px dashed #ddd;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #fafafa;
+            margin-bottom: 30px;
+            position: relative;
+            -webkit-tap-highlight-color: rgba(0,0,0,0);
+            user-select: none;
+        }
+
+        .upload-area:hover {
+            border-color: #667eea;
+            background: #f5f5ff;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.1);
+        }
+
+        .upload-area.dragover {
+            border-color: #667eea;
+            background: #f0f0ff;
+            transform: scale(1.02);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
+        }
+
+        .upload-area:active {
+            transform: scale(0.98);
+        }
+
+        .upload-area p {
+            margin-top: 10px;
+            color: #666;
+            font-weight: 500;
+            pointer-events: none;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            color: #667eea;
+            margin-bottom: 10px;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .preview-item {
+            position: relative;
+            aspect-ratio: 1;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .preview-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .preview-item .remove-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            cursor: pointer;
+            font-size: 18px;
+            color: #ff4444;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .preview-item:hover .remove-btn {
+            opacity: 1;
+        }
+
+        .settings {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            color: #555;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .audio-section {
+            background: #f0f0ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+
+        .btn-success {
+            background: #4caf50;
+            color: white;
+        }
+
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+
+        .status.success {
+            background: #e0ffe0;
+            color: #2e7d32;
+            display: block;
+        }
+
+        .status.error {
+            background: #ffe0e0;
+            color: #c62828;
+            display: block;
+        }
+
+        .status.info {
+            background: #e0f0ff;
+            color: #1565c0;
+            display: block;
+        }
+
+        .progress {
+            width: 100%;
+            height: 30px;
+            background: #f0f0f0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .buttons {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        #videoResult {
+            text-align: center;
+            margin-top: 30px;
+            display: none;
+        }
+
+        #videoResult video {
+            width: 100%;
+            max-width: 700px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SimVid Python</h1>
+        <p class="subtitle">Create beautiful slideshow videos from your images</p>
+
+        <!-- Image Upload Section -->
+        <div class="upload-area" id="imageUploadArea" onclick="selectImages()">
+            <div class="upload-icon">📸</div>
+            <p>Drag & drop images here or click to browse</p>
+            <button type="button" onclick="event.stopPropagation(); selectImages()" style="margin-top: 15px; padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">
+                Select Images
+            </button>
+        </div>
+        <input type="file" id="imageInput" multiple accept="image/*" style="display: none;" onchange="processSelectedFiles(this.files)">
+
+        <!-- Image Preview -->
+        <div class="preview-grid" id="imagePreview"></div>
+
+        <!-- Settings -->
+        <div class="settings" id="settings" style="display: none;">
+            <div class="form-group">
+                <label>Image Duration (seconds):</label>
+                <input type="number" id="duration" min="0.5" max="10" value="2" step="0.5">
+            </div>
+
+            <div class="form-group">
+                <label>Transition Type:</label>
+                <select id="transition">
+                    <option value="fade">Fade</option>
+                    <option value="slide">Slide</option>
+                    <option value="none">None</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Resolution:</label>
+                <select id="resolution">
+                    <optgroup label="Standard (16:9)">
+                        <option value="3840x2160">4K UHD (3840x2160)</option>
+                        <option value="2560x1440">1440p QHD (2560x1440)</option>
+                        <option value="1920x1080" selected>1080p Full HD (1920x1080)</option>
+                        <option value="1280x720">720p HD (1280x720)</option>
+                        <option value="854x480">480p (854x480)</option>
+                        <option value="640x360">360p (640x360)</option>
+                    </optgroup>
+                    <optgroup label="Square (1:1)">
+                        <option value="1080x1080">Instagram Square (1080x1080)</option>
+                        <option value="720x720">Square HD (720x720)</option>
+                    </optgroup>
+                    <optgroup label="Portrait (9:16)">
+                        <option value="1080x1920">Stories/Reels Full (1080x1920)</option>
+                        <option value="720x1280">Stories/Reels HD (720x1280)</option>
+                    </optgroup>
+                    <optgroup label="Cinema (21:9)">
+                        <option value="2560x1080">Ultrawide FHD (2560x1080)</option>
+                        <option value="3440x1440">Ultrawide QHD (3440x1440)</option>
+                    </optgroup>
+                </select>
+            </div>
+
+            <!-- Audio Section -->
+            <div class="form-group">
+                <label>Background Music (Optional):</label>
+                <div class="audio-section">
+                    <div style="margin-bottom: 15px;">
+                        <strong>Option 1:</strong> Download from YouTube
+                        <input type="text" id="youtubeUrl" placeholder="https://www.youtube.com/watch?v=..." style="width: 100%; margin: 10px 0;">
+                        <button class="btn btn-secondary" onclick="downloadYouTubeAudio()" style="width: 100%;">
+                            Download Audio from YouTube
+                        </button>
+                    </div>
+                    <div>
+                        <strong>Option 2:</strong> Upload audio file
+                        <input type="file" id="audioInput" accept="audio/*" style="display: none;">
+                        <button class="btn btn-secondary" onclick="document.getElementById('audioInput').click()" style="width: 100%;">
+                            Choose Audio File
+                        </button>
+                    </div>
+                </div>
+                <div id="audioStatus" class="status"></div>
+            </div>
+        </div>
+
+        <!-- Progress -->
+        <div class="progress" id="progress">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <div id="progressStatus" class="status"></div>
+
+        <!-- Action Buttons -->
+        <div class="buttons" id="actionButtons" style="display: none;">
+            <button class="btn btn-secondary" onclick="clearAll()">Clear All</button>
+            <button class="btn btn-primary" onclick="generateVideo()">Generate Video</button>
+        </div>
+
+        <!-- Video Result -->
+        <div id="videoResult">
+            <h2>Your Video is Ready!</h2>
+            <video id="videoPlayer" controls></video>
+            <div>
+                <a id="downloadLink" class="btn btn-success" download>Download Video</a>
+                <button class="btn btn-secondary" onclick="createNew()">Create New Video</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let uploadedImages = [];
+        let sessionId = null;
+        let audioId = null;
+
+        // Setup drag and drop when DOM is ready
+        window.addEventListener('load', function() {
+            console.log('Page fully loaded, setting up drag and drop...');
+
+            // Process any files that were selected before handleImageFiles was ready
+            if (window.pendingFiles) {
+                console.log('Processing pending files:', window.pendingFiles.length);
+                handleImageFiles(window.pendingFiles).catch(console.error);
+                window.pendingFiles = null;
+            }
+
+            const uploadArea = document.getElementById('imageUploadArea');
+
+            if (uploadArea) {
+                // Prevent default drag behaviors
+                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                    uploadArea.addEventListener(eventName, preventDefaults, false);
+                });
+
+                function preventDefaults(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+
+                // Highlight drop area when item is dragged over it
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    uploadArea.addEventListener(eventName, () => {
+                        uploadArea.classList.add('dragover');
+                    }, false);
+                });
+
+                ['dragleave', 'drop'].forEach(eventName => {
+                    uploadArea.addEventListener(eventName, () => {
+                        uploadArea.classList.remove('dragover');
+                    }, false);
+                });
+
+                // Handle dropped files
+                uploadArea.addEventListener('drop', (e) => {
+                    const dt = e.dataTransfer;
+                    const files = dt.files;
+                    console.log('Files dropped:', files.length);
+                    processSelectedFiles(files);
+                }, false);
+            }
+
+            // Setup audio input
+            const audioInput = document.getElementById('audioInput');
+            if (audioInput) {
+                audioInput.addEventListener('change', async (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        await uploadAudioFile(file);
+                    }
+                });
+            }
+        });
+
+        async function handleImageFiles(fileList) {
+            console.log('handleImageFiles called with', fileList.length, 'files');
+
+            // Check if preview grid exists
+            const previewGrid = document.getElementById('imagePreview');
+            if (!previewGrid) {
+                console.error('#imagePreview element not found in DOM');
+                alert('Error: Preview area not found. Please refresh the page.');
+                return;
+            }
+
+            const files = Array.from(fileList);
+            const formData = new FormData();
+            let addedCount = 0;
+
+            console.log('Processing files:', files.map(f => ({name: f.name, type: f.type, size: f.size})));
+
+            for (const file of files) {
+                console.log('Processing file:', file.name, 'Type:', file.type);
+
+                // More robust image check - handles missing MIME types
+                const isImage = (file.type && file.type.startsWith('image/')) ||
+                               /\.(png|jpe?g|gif|webp|bmp|heic|heif|svg)$/i.test(file.name);
+
+                if (!isImage) {
+                    console.log('Skipping non-image file:', file.name);
+                    continue;
+                }
+
+                // Add to FormData for upload
+                formData.append('images', file);
+                addedCount++;
+                console.log('Added to FormData:', file.name);
+
+                // Create preview using object URL (faster and more reliable)
+                const previewItem = document.createElement('div');
+                previewItem.className = 'preview-item';
+
+                const img = document.createElement('img');
+                img.alt = file.name;
+
+                // Use object URL for immediate display
+                const objectURL = URL.createObjectURL(file);
+                img.src = objectURL;
+
+                // Clean up object URL after image loads
+                img.addEventListener('load', () => {
+                    console.log('Preview loaded for:', file.name);
+                    URL.revokeObjectURL(objectURL);
+                }, { once: true });
+
+                img.addEventListener('error', () => {
+                    console.error('Failed to load preview for:', file.name);
+                    URL.revokeObjectURL(objectURL);
+                });
+
+                // Create remove button safely
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'remove-btn';
+                removeBtn.textContent = '×';
+                removeBtn.addEventListener('click', function() {
+                    removeImage(this);
+                });
+
+                // Assemble preview item
+                previewItem.appendChild(img);
+                previewItem.appendChild(removeBtn);
+                previewGrid.appendChild(previewItem);
+
+                console.log('Preview added to grid for:', file.name);
+            }
+
+            if (addedCount === 0) {
+                console.warn('No valid image files found in selection');
+                alert('Please select valid image files (JPG, PNG, GIF, etc.)');
+                return;
+            }
+
+            console.log(`Uploading ${addedCount} images to server...`);
+
+            // Upload images to server with better error handling
+            try {
+                const response = await fetch('/upload_images', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                console.log('Server response status:', response.status);
+
+                if (!response.ok) {
+                    const errorText = await response.text().catch(() => 'No error details');
+                    console.error('Upload failed:', response.status, errorText);
+                    throw new Error(`Server error ${response.status}: ${errorText}`);
+                }
+
+                const data = await response.json();
+                console.log('Server response data:', data);
+
+                if (data.success) {
+                    console.log('Upload successful!');
+                    sessionId = data.session_id;
+                    uploadedImages = data.images;
+
+                    // Show settings and action buttons
+                    const settingsEl = document.getElementById('settings');
+                    const actionsEl = document.getElementById('actionButtons');
+
+                    if (settingsEl) {
+                        settingsEl.style.display = 'block';
+                        console.log('Settings panel shown');
+                    } else {
+                        console.error('Settings element not found');
+                    }
+
+                    if (actionsEl) {
+                        actionsEl.style.display = 'block';
+                        console.log('Action buttons shown');
+                    } else {
+                        console.error('Action buttons element not found');
+                    }
+                } else {
+                    console.error('Server returned error:', data.error);
+                    alert('Upload failed: ' + (data.error || 'Unknown server error'));
+                }
+            } catch (error) {
+                console.error('Network/upload error:', error);
+                alert('Failed to upload images. Please check your connection and try again.');
+            }
+        }
+
+        async function uploadAudioFile(file) {
+            const formData = new FormData();
+            formData.append('audio', file);
+
+            showStatus('audioStatus', 'info', `Uploading: ${file.name}...`);
+
+            try {
+                const response = await fetch('/upload_audio', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    audioId = data.audio_id;
+                    showStatus('audioStatus', 'success', `✅ Audio loaded: ${file.name}`);
+                } else {
+                    showStatus('audioStatus', 'error', `❌ ${data.error}`);
+                }
+            } catch (error) {
+                showStatus('audioStatus', 'error', `❌ Upload failed: ${error.message}`);
+            }
+        }
+
+        async function downloadYouTubeAudio() {
+            const url = document.getElementById('youtubeUrl').value.trim();
+            if (!url) {
+                showStatus('audioStatus', 'error', '❌ Please enter a YouTube URL');
+                return;
+            }
+
+            showStatus('audioStatus', 'info', '⏳ Downloading audio from YouTube...');
+
+            // Request wake lock for audio download
+            await requestWakeLock();
+
+            // Add timeout control for audio download
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+
+            try {
+                const response = await fetch('/download_youtube', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url }),
+                    signal: controller.signal,
+                    keepalive: true
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (data.success) {
+                    audioId = data.audio_id;
+                    const duration = Math.floor(data.duration / 60) + ':' + (data.duration % 60).toString().padStart(2, '0');
+                    showStatus('audioStatus', 'success', `✅ Downloaded: ${data.title} (${duration})`);
+                } else {
+                    showStatus('audioStatus', 'error', `❌ ${data.error}`);
+                }
+            } catch (error) {
+                clearTimeout(timeoutId);
+                if (error.name === 'AbortError') {
+                    showStatus('audioStatus', 'error', '❌ Download timeout. Try a shorter video.');
+                } else {
+                    showStatus('audioStatus', 'error', `❌ Download failed: ${error.message}`);
+                }
+            } finally {
+                await releaseWakeLock();
+            }
+        }
+
+        // Wake Lock API to prevent screen sleep
+        let wakeLock = null;
+
+        async function requestWakeLock() {
+            if ('wakeLock' in navigator) {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Wake Lock active');
+
+                    // Re-acquire wake lock if page becomes visible again
+                    document.addEventListener('visibilitychange', async () => {
+                        if (wakeLock !== null && document.visibilityState === 'visible') {
+                            wakeLock = await navigator.wakeLock.request('screen');
+                            console.log('Wake Lock reacquired');
+                        }
+                    });
+                } catch (err) {
+                    console.log(`Wake Lock error: ${err.message}`);
+                }
+            }
+        }
+
+        async function releaseWakeLock() {
+            if (wakeLock !== null) {
+                await wakeLock.release();
+                wakeLock = null;
+                console.log('Wake Lock released');
+            }
+        }
+
+        async function generateVideo() {
+            if (!sessionId) {
+                alert('Please upload images first');
+                return;
+            }
+
+            const duration = document.getElementById('duration').value;
+            const transition = document.getElementById('transition').value;
+            const resolution = document.getElementById('resolution').value;
+
+            document.getElementById('progress').style.display = 'block';
+            updateProgress(10);
+            showStatus('progressStatus', 'info', 'Generating video...');
+
+            // Request wake lock to prevent screen sleep
+            await requestWakeLock();
+
+            // Use AbortController for timeout control
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minute timeout
+
+            try {
+                const response = await fetch('/generate_video', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        audio_id: audioId,
+                        duration,
+                        transition,
+                        resolution
+                    }),
+                    signal: controller.signal,
+                    // Keep connection alive
+                    keepalive: true
+                });
+
+                clearTimeout(timeoutId);
+                updateProgress(50);
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (data.success) {
+                    updateProgress(100);
+                    showStatus('progressStatus', 'success', '✅ Video generated successfully!');
+
+                    // Show video
+                    const videoPlayer = document.getElementById('videoPlayer');
+                    videoPlayer.src = data.download_url;
+
+                    const downloadLink = document.getElementById('downloadLink');
+                    downloadLink.href = data.download_url;
+
+                    document.getElementById('videoResult').style.display = 'block';
+
+                    // Hide progress after delay
+                    setTimeout(() => {
+                        document.getElementById('progress').style.display = 'none');
+                    }, 1000);
+                } else {
+                    showStatus('progressStatus', 'error', `❌ ${data.error}`);
+                }
+            } catch (error) {
+                clearTimeout(timeoutId);
+                if (error.name === 'AbortError') {
+                    showStatus('progressStatus', 'error', '❌ Request timeout. Please try again with fewer images or shorter duration.');
+                } else if (error.message.includes('Failed to fetch')) {
+                    showStatus('progressStatus', 'error', '❌ Connection lost. Please check your internet and try again.');
+                } else {
+                    showStatus('progressStatus', 'error', `❌ Generation failed: ${error.message}`);
+                }
+            } finally {
+                // Release wake lock when done
+                await releaseWakeLock();
+            }
+        }
+
+        function updateProgress(percent) {
+            document.getElementById('progressBar').style.width = percent + '%';
+        }
+
+        function showStatus(elementId, type, message) {
+            const element = document.getElementById(elementId);
+            element.className = `status ${type}`;
+            element.textContent = message;
+            element.style.display = 'block';
+        }
+
+        function clearAll() {
+            document.getElementById('imagePreview').innerHTML = '';
+            uploadedImages = [];
+            sessionId = null;
+            audioId = null;
+            document.getElementById('settings').style.display = 'none';
+            document.getElementById('actionButtons').style.display = 'none';
+            document.getElementById('audioStatus').style.display = 'none';
+            document.getElementById('youtubeUrl').value = '';
+            imageInput.value = '';
+            audioInput.value = '';
+        }
+
+        function createNew() {
+            clearAll();
+            document.getElementById('videoResult').style.display = 'none';
+            document.getElementById('progressStatus').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
