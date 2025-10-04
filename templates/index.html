@@ -72,35 +72,64 @@
         }
 
         .container {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 40px 20px;
+            max-width: 100%;
+            margin: 0;
+            padding: 0;
+            height: calc(100vh - 73px);
         }
 
-        h1 {
-            text-align: center;
-            color: var(--text);
-            margin-bottom: 8px;
-            font-size: 32px;
+        /* Split screen layout */
+        .split-container {
+            display: flex;
+            height: 100%;
+        }
+
+        .left-panel {
+            flex: 1;
+            padding: 40px;
+            overflow-y: auto;
+            border-right: 1px solid var(--border);
+        }
+
+        .right-panel {
+            width: 500px;
+            padding: 40px;
+            overflow-y: auto;
+            background: var(--bg-subtle);
+        }
+
+        .panel-title {
+            font-size: 18px;
             font-weight: 600;
+            color: var(--text);
+            margin-bottom: 24px;
         }
 
-        .subtitle {
-            text-align: center;
-            color: var(--text-muted);
-            margin-bottom: 40px;
-            font-size: 16px;
+        /* Mobile responsive */
+        @media (max-width: 1024px) {
+            .split-container {
+                flex-direction: column;
+            }
+
+            .left-panel {
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+
+            .right-panel {
+                width: 100%;
+            }
         }
 
         .upload-area {
             border: 2px dashed var(--border);
             border-radius: 12px;
-            padding: 48px;
+            padding: 60px 48px;
             text-align: center;
             cursor: pointer;
             transition: all 0.2s ease;
-            background: var(--bg-subtle);
-            margin-bottom: 32px;
+            background: var(--bg);
+            margin-bottom: 24px;
             position: relative;
         }
 
@@ -123,17 +152,18 @@
 
         .preview-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 15px;
-            margin: 20px 0;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 12px;
+            margin: 0;
         }
 
         .preview-item {
             position: relative;
             aspect-ratio: 1;
-            border-radius: 10px;
+            border-radius: 8px;
             overflow: hidden;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--border);
         }
 
         .preview-item img {
@@ -144,40 +174,45 @@
 
         .preview-item .remove-btn {
             position: absolute;
-            top: 5px;
-            right: 5px;
-            width: 30px;
-            height: 30px;
+            top: 4px;
+            right: 4px;
+            width: 24px;
+            height: 24px;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(0, 0, 0, 0.6);
             border: none;
             cursor: pointer;
-            font-size: 20px;
+            font-size: 16px;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            color: white;
+            transition: background 0.2s;
         }
 
         .preview-item .remove-btn:hover {
-            background: #ff4444;
-            color: white;
+            background: #EF4444;
         }
 
         .settings {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            padding: 32px;
-            border-radius: 12px;
-            margin: 32px 0;
-            display: none;
+            background: transparent;
+            border: none;
+            padding: 0;
+            border-radius: 0;
+            margin: 0;
+            display: block;
         }
 
         .settings h3 {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 600;
-            margin-bottom: 24px;
+            margin-bottom: 16px;
+            margin-top: 24px;
             color: var(--text);
+        }
+
+        .settings h3:first-child {
+            margin-top: 0;
         }
 
         .setting-group {
@@ -362,25 +397,27 @@
     </div>
 
     <div class="container">
-        <h1>Create Slideshow Videos</h1>
-        <p class="subtitle">Upload images and generate beautiful slideshow videos with music</p>
+        <div class="split-container">
+            <!-- Left Panel: Image Upload & Preview -->
+            <div class="left-panel">
+                <!-- Image Upload Section -->
+                <div class="upload-area" id="imageUploadArea">
+                    <div class="upload-icon">📸</div>
+                    <p style="color: var(--text-muted); margin-bottom: 16px;">Drag & drop images here or click to browse</p>
+                    <button type="button" id="selectBtn" class="btn btn-primary">
+                        Select Images
+                    </button>
+                </div>
+                <input type="file" id="imageInput" multiple accept="image/*" style="display: none;">
 
-        <!-- Image Upload Section -->
-        <div class="upload-area" id="imageUploadArea">
-            <div class="upload-icon">📸</div>
-            <p style="color: var(--text-muted); margin-bottom: 16px;">Drag & drop images here or click to browse</p>
-            <button type="button" id="selectBtn" class="btn btn-primary">
-                Select Images
-            </button>
-        </div>
-        <input type="file" id="imageInput" multiple accept="image/*" style="display: none;">
+                <!-- Image Preview -->
+                <div class="preview-grid" id="imagePreview"></div>
+            </div>
 
-        <!-- Image Preview -->
-        <div class="preview-grid" id="imagePreview"></div>
-
-        <!-- Settings -->
-        <div class="settings" id="settings">
-            <h3>Video Settings</h3>
+            <!-- Right Panel: Video Settings -->
+            <div class="right-panel">
+                <div class="panel-title">Video Settings</div>
+                <div class="settings" id="settings">
             <div class="setting-group">
                 <label>Duration per image: <span id="durationValue">2</span> seconds</label>
                 <input type="range" id="duration" min="1" max="10" value="2" oninput="document.getElementById('durationValue').textContent = this.value">
@@ -404,7 +441,7 @@
             </div>
 
             <!-- Audio Section -->
-            <h3 style="margin-top: 32px;">Background Music (Optional)</h3>
+            <h3>Background Music (Optional)</h3>
             <div class="audio-section">
                 <div style="margin-bottom: 20px;">
                     <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--text); font-size: 14px;">YouTube URL</label>
@@ -442,32 +479,34 @@
                 </div>
                 <div id="audioStatus" class="status"></div>
             </div>
-        </div>
 
-        <!-- Action Buttons -->
-        <div style="text-align: center; margin-top: 32px; display: none;" id="actionButtons">
-            <button class="btn btn-primary" id="generateBtn" style="font-size: 16px; padding: 12px 32px;">
-                Generate Video
-            </button>
-            <button class="btn btn-secondary" id="clearBtn">Clear All</button>
-        </div>
-
-        <!-- Progress -->
-        <div id="progress" style="display: none; margin-top: 32px;">
-            <div style="background: var(--bg-subtle); border-radius: 8px; overflow: hidden; border: 1px solid var(--border);">
-                <div id="progressBar" style="background: var(--accent); height: 8px; width: 0%; transition: width 0.3s ease;"></div>
+            <!-- Action Buttons -->
+            <div style="margin-top: 32px;" id="actionButtons">
+                <button class="btn btn-primary" id="generateBtn" style="width: 100%; font-size: 16px; padding: 14px;">
+                    Generate Video
+                </button>
+                <button class="btn btn-secondary" id="clearBtn" style="width: 100%; margin-top: 12px;">Clear All</button>
             </div>
-            <div id="progressStatus" class="status"></div>
-        </div>
 
-        <!-- Video Result -->
-        <div id="videoResult" style="display: none; margin-top: 32px; text-align: center;">
-            <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 20px; color: var(--text);">Your Video is Ready! 🎉</h3>
-            <video id="videoPlayer" controls style="width: 100%; max-width: 600px; margin: 24px 0; border-radius: 12px; border: 1px solid var(--border); background: #000;"></video>
-            <div>
-                <a id="downloadLink" class="btn btn-success" download style="font-size: 16px; padding: 12px 32px;">Download Video</a>
-                <button class="btn btn-secondary" id="createNewBtn">Create New Video</button>
+            <!-- Progress -->
+            <div id="progress" style="display: none; margin-top: 32px;">
+                <div style="background: var(--bg); border-radius: 8px; overflow: hidden; border: 1px solid var(--border);">
+                    <div id="progressBar" style="background: var(--accent); height: 8px; width: 0%; transition: width 0.3s ease;"></div>
+                </div>
+                <div id="progressStatus" class="status"></div>
             </div>
+
+            <!-- Video Result -->
+            <div id="videoResult" style="display: none; margin-top: 32px;">
+                <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 20px; color: var(--text); text-align: center;">Your Video is Ready! 🎉</h3>
+                <video id="videoPlayer" controls style="width: 100%; margin: 24px 0; border-radius: 12px; border: 1px solid var(--border); background: #000;"></video>
+                <div style="display: flex; gap: 12px;">
+                    <a id="downloadLink" class="btn btn-success" download style="flex: 1; font-size: 16px; padding: 14px; text-align: center; text-decoration: none;">Download Video</a>
+                    <button class="btn btn-secondary" id="createNewBtn" style="flex: 1;">Create New Video</button>
+                </div>
+            </div>
+        </div>
+        </div>
         </div>
     </div>
 
@@ -633,8 +672,7 @@
                 if (data.success) {
                     sessionId = data.session_id;
                     uploadedImages = data.images;
-                    document.getElementById('settings').style.display = 'block';
-                    document.getElementById('actionButtons').style.display = 'block';
+                    // Settings already visible in right panel
                     console.log('Upload successful:', data);
                 }
             } catch (error) {
@@ -878,8 +916,7 @@
             uploadedImages = [];
             sessionId = null;
             audioId = null;
-            document.getElementById('settings').style.display = 'none';
-            document.getElementById('actionButtons').style.display = 'none';
+            // Settings remain visible in right panel
         }
 
         function createNew() {
