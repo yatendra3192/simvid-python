@@ -350,7 +350,11 @@ def upload_images():
     if len(files) > 50:
         return jsonify({'error': 'Maximum 50 images allowed per upload'}), 400
 
-    session_id = str(uuid.uuid4())
+    # Use existing session_id if provided, otherwise create new one
+    session_id = request.form.get('session_id')
+    if not session_id:
+        session_id = str(uuid.uuid4())
+
     session_folder = os.path.join(app.config['UPLOAD_FOLDER'], session_id)
     os.makedirs(session_folder, exist_ok=True)
 

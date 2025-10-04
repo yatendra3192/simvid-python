@@ -775,6 +775,11 @@
 
             // Upload to server
             try {
+                // If we already have a session, append to it
+                if (sessionId) {
+                    formData.append('session_id', sessionId);
+                }
+
                 const response = await fetch('/upload_images', {
                     method: 'POST',
                     body: formData
@@ -783,9 +788,15 @@
                 const data = await response.json();
                 if (data.success) {
                     sessionId = data.session_id;
-                    uploadedImages = data.images;
+                    // Append new images to existing array
+                    if (uploadedImages && uploadedImages.length > 0) {
+                        uploadedImages = uploadedImages.concat(data.images);
+                    } else {
+                        uploadedImages = data.images;
+                    }
                     // Settings already visible in right panel
                     console.log('Upload successful:', data);
+                    console.log('Total images:', uploadedImages.length);
                 }
             } catch (error) {
                 console.error('Upload error:', error);
