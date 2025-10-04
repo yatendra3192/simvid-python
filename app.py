@@ -708,11 +708,14 @@ def generate_video_sync(job_id, session_id, audio_id, duration_per_image, transi
     if not os.path.exists(session_folder):
         return jsonify({'error': 'Session not found'}), 404
 
-    image_files = sorted([
+    # Get image files and sort by creation time to preserve upload order
+    image_files = [
         os.path.join(session_folder, f)
         for f in os.listdir(session_folder)
         if allowed_file(f, ALLOWED_IMAGE_EXTENSIONS)
-    ])
+    ]
+    # Sort by file creation/modification time (upload order)
+    image_files = sorted(image_files, key=lambda x: os.path.getctime(x))
 
     if not image_files:
         update_progress(job_id, 'error', 0, 'No images found')

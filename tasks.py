@@ -95,8 +95,8 @@ def get_image_files(session_id):
         if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
             images.append(os.path.join(session_path, filename))
 
-    # Sort by filename to maintain order
-    images.sort()
+    # Sort by file creation time to maintain upload order
+    images.sort(key=lambda x: os.path.getctime(x))
     return images
 
 
