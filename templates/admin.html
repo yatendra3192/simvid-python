@@ -165,37 +165,90 @@
         .project-meta span { display: flex; align-items: center; gap: 4px; }
         .project-actions { display: flex; gap: 8px; margin-top: auto; }
 
-        /* Images Strip */
-        .project-images {
+        /* Image Carousel */
+        .project-images-carousel {
+            position: relative;
+            padding: 0 20px 20px;
+        }
+        .carousel-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .carousel-nav {
+            width: 32px;
+            height: 32px;
+            min-width: 32px;
+            border-radius: 50%;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+        .carousel-nav:hover { background: var(--accent); border-color: var(--accent); }
+        .carousel-nav:disabled { opacity: 0.3; cursor: not-allowed; }
+        .carousel-track {
             display: flex;
             gap: 8px;
-            padding: 0 20px 20px;
             overflow-x: auto;
-            scrollbar-width: thin;
+            flex: 1;
+            scroll-behavior: smooth;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
         }
-        .project-images::-webkit-scrollbar { height: 6px; }
-        .project-images::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
+        .carousel-track::-webkit-scrollbar { display: none; }
         .image-thumb {
-            width: 60px;
-            height: 60px;
-            min-width: 60px;
+            width: 70px;
+            height: 70px;
+            min-width: 70px;
             border-radius: 8px;
             overflow: hidden;
             border: 2px solid var(--border);
             transition: all 0.2s;
+            cursor: pointer;
         }
         .image-thumb:hover { border-color: var(--accent); transform: scale(1.05); }
+        .image-thumb.active { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3); }
         .image-thumb img { width: 100%; height: 100%; object-fit: cover; }
         .image-thumb.more {
-            background: var(--bg-tertiary);
+            background: var(--accent);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 12px;
+            font-size: 13px;
             font-weight: 600;
-            color: var(--text-secondary);
+            color: white;
+            cursor: pointer;
         }
+        .image-thumb.more:hover { background: var(--accent-hover); transform: scale(1.05); }
+
+        /* All Images Modal */
+        .all-images-modal {
+            max-width: 900px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .all-images-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+        .all-images-grid .thumb {
+            aspect-ratio: 1;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            border: 2px solid var(--border);
+            transition: all 0.2s;
+        }
+        .all-images-grid .thumb:hover { border-color: var(--accent); transform: scale(1.02); }
+        .all-images-grid .thumb img { width: 100%; height: 100%; object-fit: cover; }
 
         /* Audio Info in Project */
         .project-audio {
@@ -468,6 +521,18 @@
         </div>
     </div>
 
+    <!-- All Images Modal -->
+    <div id="allImagesModal" class="modal-overlay" onclick="if(event.target === this) closeModal('allImagesModal')">
+        <div class="modal all-images-modal">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <h2 id="allImagesCount">Images</h2>
+                <button class="btn btn-secondary btn-sm" onclick="closeModal('allImagesModal')">Close</button>
+            </div>
+            <p style="color: var(--text-secondary); margin-bottom: 12px;">Click any image to view full size</p>
+            <div id="allImagesGrid" class="all-images-grid"></div>
+        </div>
+    </div>
+
     <script>
         let data = { images: [], audio: [], videos: [], stats: {} };
         let projects = [];
@@ -571,7 +636,7 @@
                 return;
             }
 
-            list.innerHTML = projects.map(p => {
+            list.innerHTML = projects.map((p, projectIndex) => {
                 const video = p.video || {};
                 const images = p.images || [];
                 const audio = p.audio;
@@ -580,19 +645,38 @@
                 // Video preview URL
                 const videoUrl = `/admin/preview/video/${video.id}?token=${token()}`;
 
-                // Image thumbnails (show first 8, then +more)
-                const maxImages = 8;
-                const displayImages = images.slice(0, maxImages);
-                const moreCount = images.length - maxImages;
+                // Image carousel - show 6 visible at a time
+                const visibleCount = 6;
+                const showNav = images.length > visibleCount;
+                const moreCount = images.length - visibleCount;
 
-                let imagesHtml = displayImages.map(img => `
-                    <div class="image-thumb" onclick="previewImage('${p.session_id}', '${img.name}')">
-                        <img src="/admin/preview/image/${img.session_id}/${img.name}?token=${token()}" alt="">
-                    </div>
-                `).join('');
+                let carouselHtml = '';
+                if (images.length > 0) {
+                    const displayImages = images.slice(0, visibleCount);
+                    const thumbsHtml = displayImages.map((img, i) => `
+                        <div class="image-thumb" onclick="previewImage('${p.session_id}', '${img.name}')">
+                            <img src="/admin/preview/image/${img.session_id}/${img.name}?token=${token()}" alt="">
+                        </div>
+                    `).join('');
 
-                if (moreCount > 0) {
-                    imagesHtml += `<div class="image-thumb more">+${moreCount}</div>`;
+                    const moreBtn = moreCount > 0 ? `
+                        <div class="image-thumb more" onclick="showAllImages('${p.id}', ${projectIndex})">
+                            +${moreCount}
+                        </div>
+                    ` : '';
+
+                    carouselHtml = `
+                        <div class="project-images-carousel">
+                            <div class="carousel-container">
+                                ${showNav ? `<button class="carousel-nav" onclick="scrollCarousel('${p.id}', -1)">&#10094;</button>` : ''}
+                                <div class="carousel-track" id="carousel-${p.id}">
+                                    ${thumbsHtml}
+                                    ${moreBtn}
+                                </div>
+                                ${showNav ? `<button class="carousel-nav" onclick="scrollCarousel('${p.id}', 1)">&#10095;</button>` : ''}
+                            </div>
+                        </div>
+                    `;
                 }
 
                 // Audio section
@@ -616,7 +700,7 @@
                 }
 
                 return `
-                    <div class="project-card" data-id="${p.id}">
+                    <div class="project-card" data-id="${p.id}" data-images='${JSON.stringify(images)}' data-session="${p.session_id || ''}">
                         <div class="project-header">
                             <div class="project-video" onclick="toggleVideo(this)">
                                 <video preload="auto" muted loop playsinline>
@@ -642,10 +726,38 @@
                                 </div>
                             </div>
                         </div>
-                        ${images.length > 0 ? `<div class="project-images">${imagesHtml}</div>` : ''}
+                        ${carouselHtml}
                     </div>
                 `;
             }).join('');
+        }
+
+        function scrollCarousel(projectId, direction) {
+            const track = document.getElementById(`carousel-${projectId}`);
+            if (track) {
+                const scrollAmount = 160; // ~2 thumbnails
+                track.scrollBy({ left: direction * scrollAmount, behavior: 'smooth' });
+            }
+        }
+
+        function showAllImages(projectId, projectIndex) {
+            const card = document.querySelector(`.project-card[data-id="${projectId}"]`);
+            if (!card) return;
+
+            const images = JSON.parse(card.dataset.images || '[]');
+            const sessionId = card.dataset.session;
+
+            if (images.length === 0) return;
+
+            const grid = document.getElementById('allImagesGrid');
+            grid.innerHTML = images.map(img => `
+                <div class="thumb" onclick="previewImage('${sessionId}', '${img.name}')">
+                    <img src="/admin/preview/image/${img.session_id}/${img.name}?token=${token()}" alt="">
+                </div>
+            `).join('');
+
+            document.getElementById('allImagesCount').textContent = `${images.length} Images`;
+            document.getElementById('allImagesModal').classList.add('show');
         }
 
         function renderImages() {
