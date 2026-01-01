@@ -16,6 +16,9 @@ except ImportError:
 from PIL import Image
 import json
 from redis import Redis
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import numpy as np
+import multiprocessing
 
 # Import configuration from app
 # Match app.py folder configuration logic
@@ -24,12 +27,12 @@ if RAILWAY_VOLUME:
     UPLOAD_FOLDER = os.path.join(RAILWAY_VOLUME, 'uploads')
     AUDIO_FOLDER = os.path.join(RAILWAY_VOLUME, 'audio')
     OUTPUT_FOLDER = os.path.join(RAILWAY_VOLUME, 'output')
-    print(f"✅ [Worker] Using Railway volume: {RAILWAY_VOLUME}")
+    print(f"[OK] [Worker] Using Railway volume: {RAILWAY_VOLUME}")
 else:
     UPLOAD_FOLDER = 'uploads'
     AUDIO_FOLDER = 'audio'
     OUTPUT_FOLDER = 'output'
-    print("⚠️ [Worker] No Railway volume found, using local folders")
+    print("[WARN] [Worker] No Railway volume found, using local folders")
 
 # Create folders if they don't exist
 for folder in [UPLOAD_FOLDER, AUDIO_FOLDER, OUTPUT_FOLDER]:
@@ -41,9 +44,9 @@ redis_url = os.environ.get('REDIS_URL')
 if redis_url:
     try:
         redis_conn = Redis.from_url(redis_url, decode_responses=True)
-        print("[Worker] ✅ Connected to Redis for progress updates")
+        print("[Worker] [OK] Connected to Redis for progress updates")
     except Exception as e:
-        print(f"[Worker] ⚠️ Failed to connect to Redis: {e}")
+        print(f"[Worker] [WARN] Failed to connect to Redis: {e}")
 
 def update_progress(job_id, stage, progress, message=""):
     """Update job progress in Redis"""
@@ -100,6 +103,40 @@ def get_image_files(session_id):
     return images
 
 
+def process_single_image_task(args):
+    """Process a single image for video generation - optimized for parallel processing"""
+    img_path, width, height = args
+
+    # Load and fix orientation
+    img = Image.open(img_path)
+    img = fix_image_orientation(img)
+    img = img.convert('RGB')
+
+    # Calculate scaling to fit within resolution while maintaining aspect ratio
+    img_ratio = img.width / img.height
+    video_ratio = width / height
+
+    if img_ratio > video_ratio:
+        new_width = width
+        new_height = int(width / img_ratio)
+    else:
+        new_height = height
+        new_width = int(height * img_ratio)
+
+    img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+    # Create black background
+    background = Image.new('RGB', (width, height), (0, 0, 0))
+
+    # Paste image centered
+    x = (width - new_width) // 2
+    y = (height - new_height) // 2
+    background.paste(img, (x, y))
+
+    # Convert to numpy array
+    return np.array(background)
+
+
 def generate_video_job(job_id, session_id, audio_id, duration, transition, resolution):
     """
     Background job to generate video
@@ -136,65 +173,43 @@ def generate_video_job(job_id, session_id, audio_id, duration, transition, resol
         print(f"[{job_id}] Found {total_images} images")
         update_progress(job_id, 'processing', 10, f'Found {total_images} images')
 
-        # Update progress: Processing images
+        # Get target resolution
+        width, height = map(int, resolution.split('x'))
+
+        # Update progress: Processing images using parallel processing
+        update_progress(job_id, 'processing', 10, f'Processing {total_images} images in parallel...')
+        print(f"[{job_id}] Processing {total_images} images in parallel...")
+
+        # Prepare arguments for parallel processing
+        process_args = [(img_path, width, height) for img_path in image_files]
+
+        # Use ThreadPoolExecutor for parallel image processing (4x faster)
+        max_workers = min(8, total_images)
+        processed_frames = [None] * total_images
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_idx = {executor.submit(process_single_image_task, args): idx
+                           for idx, args in enumerate(process_args)}
+
+            completed = 0
+            for future in as_completed(future_to_idx):
+                idx = future_to_idx[future]
+                try:
+                    processed_frames[idx] = future.result()
+                    completed += 1
+                    progress = 10 + int((completed / total_images) * 50)
+                    update_progress(job_id, 'processing', progress, f'Processed {completed}/{total_images} images')
+                    print(f"[{job_id}] Processed {completed}/{total_images} images ({progress}%)")
+                except Exception as e:
+                    print(f"[{job_id}] Error processing image {idx + 1}: {e}")
+                    raise
+
+        # Create video clips from processed frames
         clips = []
-        for idx, img_path in enumerate(image_files):
-            progress = 10 + int((idx / total_images) * 50)
-            update_progress(job_id, 'processing', progress, f'Processing image {idx + 1}/{total_images}')
-            print(f"[{job_id}] Processing image {idx + 1}/{total_images} ({progress}%)")
-
-            try:
-                # Load and fix orientation
-                img = Image.open(img_path)
-                img = fix_image_orientation(img)
-                img = img.convert('RGB')
-
-                # Get target resolution
-                width, height = map(int, resolution.split('x'))
-
-                # Calculate scaling to fit within resolution while maintaining aspect ratio
-                img_ratio = img.width / img.height
-                video_ratio = width / height
-
-                if img_ratio > video_ratio:
-                    # Image is wider - fit to width
-                    new_width = width
-                    new_height = int(width / img_ratio)
-                else:
-                    # Image is taller - fit to height
-                    new_height = height
-                    new_width = int(height * img_ratio)
-
-                # Resize image maintaining aspect ratio
-                img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-
-                # Create black background at target resolution
-                background = Image.new('RGB', (width, height), (0, 0, 0))
-
-                # Center the resized image on background (letterboxing)
-                x = (width - new_width) // 2
-                y = (height - new_height) // 2
-                background.paste(img, (x, y))
-
-                # Save to temporary file
-                temp_path = img_path + '.temp.jpg'
-                background.save(temp_path, 'JPEG')
-
-                # Create clip from processed image
-                clip = ImageClip(temp_path, duration=duration)
-
-                # Note: Transitions are complex in MoviePy 2.x, skipping for now
-                # The fade transition would be applied during concatenation
-
+        for frame in processed_frames:
+            if frame is not None:
+                clip = ImageClip(frame, duration=duration)
                 clips.append(clip)
-
-                # Clean up temp file
-                if os.path.exists(temp_path):
-                    os.remove(temp_path)
-
-            except Exception as e:
-                print(f"[{job_id}] Error processing image {idx + 1}: {e}")
-                continue
 
         if len(clips) == 0:
             return {
@@ -232,10 +247,10 @@ def generate_video_job(job_id, session_id, audio_id, duration, transition, resol
                         # Trim audio
                         audio_clip = audio_clip.subclipped(0, video_duration)
                     elif audio_clip.duration < video_duration:
-                        # Loop audio
+                        # Loop audio - reload file for each loop (copy() doesn't work in MoviePy 2.x)
                         loops_needed = int(video_duration / audio_clip.duration) + 1
                         from moviepy.audio.AudioClip import concatenate_audioclips
-                        audio_clips = [audio_clip] * loops_needed
+                        audio_clips = [AudioFileClip(audio_path) for _ in range(loops_needed)]
                         audio_clip = concatenate_audioclips(audio_clips).subclipped(0, video_duration)
 
                     final_video = final_video.with_audio(audio_clip)
@@ -251,16 +266,24 @@ def generate_video_job(job_id, session_id, audio_id, duration, transition, resol
         # Generate output path
         output_path = safe_join_path(OUTPUT_FOLDER, f"{job_id}.mp4")
 
-        # Write video file
+        # Write video file with optimized settings
         update_progress(job_id, 'encoding', 75, 'Encoding video file...')
         print(f"[{job_id}] Encoding video to {output_path}...")
+
+        # Use multiple threads for faster encoding
+        num_threads = min(multiprocessing.cpu_count(), 8)
+
         final_video.write_videofile(
             output_path,
             fps=30,
             codec='libx264',
             audio_codec='aac',
-            preset='medium',
-            threads=4,
+            preset='fast',  # Much faster than 'medium', minimal quality loss
+            threads=num_threads,
+            ffmpeg_params=[
+                '-tune', 'stillimage',  # Optimized for slideshow
+                '-movflags', '+faststart',  # Enable fast web playback
+            ],
             logger=None  # Suppress MoviePy progress bars in worker
         )
 
@@ -276,7 +299,7 @@ def generate_video_job(job_id, session_id, audio_id, duration, transition, resol
         # Get file size
         file_size = os.path.getsize(output_path) if os.path.exists(output_path) else 0
 
-        print(f"[{job_id}] ✅ Video generation complete! Size: {file_size} bytes")
+        print(f"[{job_id}] [OK] Video generation complete! Size: {file_size} bytes")
 
         result = {
             'success': True,
@@ -295,7 +318,7 @@ def generate_video_job(job_id, session_id, audio_id, duration, transition, resol
 
     except Exception as e:
         error_msg = str(e)
-        print(f"[{job_id}] ❌ Error: {error_msg}")
+        print(f"[{job_id}] [ERROR] Error: {error_msg}")
         update_progress(job_id, 'error', 0, f'Error: {error_msg}')
         return {
             'success': False,

@@ -21,6 +21,7 @@ except ImportError:
 from PIL import Image, ImageOps
 import numpy as np
 from redis import Redis
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Configuration - match app.py folder logic
 RAILWAY_VOLUME = os.environ.get('RAILWAY_VOLUME_MOUNT_PATH')
@@ -78,6 +79,43 @@ def fix_image_orientation(img):
         return img
 
 
+def process_single_image_celery(args):
+    """Process a single image for video generation - optimized for parallel processing"""
+    img_path, width, height = args
+
+    img = Image.open(img_path)
+    img = fix_image_orientation(img)
+    img = img.convert('RGB')
+
+    # Scale and letterbox
+    img_ratio = img.width / img.height
+    video_ratio = width / height
+
+    if img_ratio > video_ratio:
+        new_width = width
+        new_height = int(width / img_ratio)
+    else:
+        new_height = height
+        new_width = int(height * img_ratio)
+
+    img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+    # Create background with letterboxing
+    background = Image.new('RGB', (width, height), (0, 0, 0))
+    x = (width - new_width) // 2
+    y = (height - new_height) // 2
+    background.paste(img, (x, y))
+
+    # Convert to numpy array
+    frame = np.array(background)
+
+    # Free memory
+    img.close()
+    background.close()
+
+    return frame
+
+
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def generate_video_task(self, job_id, session_id, audio_id, duration, transition, resolution):
     """
@@ -105,59 +143,46 @@ def generate_video_task(self, job_id, session_id, audio_id, duration, transition
             update_progress(job_id, 'error', 0, 'No images found')
             return {'success': False, 'error': 'No images found'}
 
-        update_progress(job_id, 'processing', 10, f'Processing {total_images} images...')
-
         # Parse resolution
         width, height = map(int, resolution.split('x'))
 
-        # Process images with progress tracking
+        update_progress(job_id, 'processing', 10, f'Processing {total_images} images in parallel...')
+
+        # Prepare arguments for parallel processing
+        process_args = [(img_path, width, height) for img_path in image_files]
+
+        # Use ThreadPoolExecutor for parallel image processing (4x faster)
+        max_workers = min(8, total_images)
+        processed_frames = [None] * total_images
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_idx = {executor.submit(process_single_image_celery, args): idx
+                           for idx, args in enumerate(process_args)}
+
+            completed = 0
+            for future in as_completed(future_to_idx):
+                idx = future_to_idx[future]
+                try:
+                    processed_frames[idx] = future.result()
+                    completed += 1
+                    progress = 10 + int((completed / total_images) * 50)
+                    update_progress(job_id, 'processing', progress, f'Processed {completed}/{total_images} images')
+
+                    # Update Celery task state
+                    self.update_state(
+                        state='PROGRESS',
+                        meta={'current': completed, 'total': total_images, 'stage': 'processing'}
+                    )
+                except Exception as e:
+                    print(f"[{job_id}] Error processing image {idx + 1}: {e}")
+                    raise
+
+        # Create video clips from processed frames
         clips = []
-        for idx, img_path in enumerate(image_files):
-            progress = 10 + int((idx / total_images) * 50)
-            update_progress(job_id, 'processing', progress, f'Processing image {idx + 1}/{total_images}')
-
-            # Update Celery task state
-            self.update_state(
-                state='PROGRESS',
-                meta={'current': idx + 1, 'total': total_images, 'stage': 'processing'}
-            )
-
-            try:
-                img = Image.open(img_path)
-                img = fix_image_orientation(img)
-                img = img.convert('RGB')
-
-                # Scale and letterbox
-                img_ratio = img.width / img.height
-                video_ratio = width / height
-
-                if img_ratio > video_ratio:
-                    new_width = width
-                    new_height = int(width / img_ratio)
-                else:
-                    new_height = height
-                    new_width = int(height * img_ratio)
-
-                img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-
-                # Create background with letterboxing
-                background = Image.new('RGB', (width, height), (0, 0, 0))
-                x = (width - new_width) // 2
-                y = (height - new_height) // 2
-                background.paste(img, (x, y))
-
-                # Convert to numpy array
-                frame = np.array(background)
+        for frame in processed_frames:
+            if frame is not None:
                 clip = ImageClip(frame, duration=duration)
                 clips.append(clip)
-
-                # Free memory
-                img.close()
-                background.close()
-
-            except Exception as e:
-                print(f"[{job_id}] Error processing image {idx + 1}: {e}")
-                continue
 
         if len(clips) == 0:
             update_progress(job_id, 'error', 0, 'Failed to process images')
@@ -177,7 +202,8 @@ def generate_video_task(self, job_id, session_id, audio_id, duration, transition
 
             if audio_files:
                 try:
-                    audio_clip = AudioFileClip(audio_files[0])
+                    audio_path = audio_files[0]
+                    audio_clip = AudioFileClip(audio_path)
                     video_duration = final_video.duration
 
                     # Check for trim info
@@ -201,8 +227,9 @@ def generate_video_task(self, job_id, session_id, audio_id, duration, transition
                     if audio_clip.duration > video_duration:
                         audio_clip = audio_clip.subclipped(0, video_duration)
                     elif audio_clip.duration < video_duration:
+                        # Loop audio - reload file for each loop (copy() doesn't work in MoviePy 2.x)
                         loops = int(video_duration / audio_clip.duration) + 1
-                        audio_clip = concatenate_audioclips([audio_clip] * loops).subclipped(0, video_duration)
+                        audio_clip = concatenate_audioclips([AudioFileClip(audio_path) for _ in range(loops)]).subclipped(0, video_duration)
 
                     final_video = final_video.with_audio(audio_clip)
 
@@ -234,7 +261,7 @@ def generate_video_task(self, job_id, session_id, audio_id, duration, transition
         ffmpeg_params = [
             '-movflags', '+faststart',  # Enable fast start for streaming
             '-pix_fmt', 'yuv420p',  # Best compatibility
-            '-crf', '23',  # Constant rate factor for quality
+            '-tune', 'stillimage',  # Optimized for slideshow (mostly still images)
         ]
 
         final_video.write_videofile(

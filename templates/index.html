@@ -12,8 +12,19 @@
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aiezzy Simvid - Slideshow Video Generator</title>
+    <title>Aiezzy Slideshow Video Maker</title>
+    <link rel="icon" type="image/png" href="https://aiezzy.com/favicon.png">
     <style>
+        :root {
+            --bg: #FFFFFF;
+            --bg-subtle: #F5F7F9;
+            --text: #111827;
+            --text-muted: #6B7280;
+            --border: #E5E7EB;
+            --accent: #0EA5E9;
+            --shadow: rgba(0,0,0,0.08);
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -21,78 +32,253 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
             min-height: 100vh;
-            padding: 20px;
+            padding: 0;
+        }
+
+        /* Header */
+        .header {
+            background: var(--bg);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo {
+            height: 40px;
+            width: auto;
+        }
+
+        .header-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .back-link {
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+
+        .back-link:hover {
+            background: var(--bg-subtle);
         }
 
         .container {
-            max-width: 900px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 100%;
+            margin: 0;
+            padding: 0;
+            height: calc(100vh - 73px);
+        }
+
+        /* Split screen layout */
+        .split-container {
+            display: flex;
+            height: 100%;
+        }
+
+        .left-panel {
+            flex: 1;
             padding: 40px;
+            overflow-y: auto;
+            border-right: 1px solid var(--border);
         }
 
-        h1 {
-            text-align: center;
-            color: #333;
-            margin-bottom: 10px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+        .right-panel {
+            width: 500px;
+            padding: 40px;
+            overflow-y: auto;
+            background: var(--bg-subtle);
         }
 
-        .subtitle {
-            text-align: center;
-            color: #666;
-            margin-bottom: 30px;
+        .panel-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 24px;
+        }
+
+        /* Mobile responsive */
+        @media (max-width: 1024px) {
+            .container {
+                height: auto;
+            }
+
+            .split-container {
+                flex-direction: column;
+                height: auto;
+            }
+
+            .left-panel {
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+                padding: 24px 16px;
+            }
+
+            .right-panel {
+                width: 100%;
+                padding: 24px 16px;
+            }
+
+            .header {
+                padding: 12px 16px;
+            }
+
+            .header-title {
+                font-size: 16px;
+            }
+
+            .preview-grid {
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+                gap: 8px;
+            }
+
+            .upload-area {
+                padding: 24px 16px;
+            }
+
+            .upload-icon {
+                font-size: 32px;
+            }
         }
 
         .upload-area {
-            border: 3px dashed #ddd;
-            border-radius: 15px;
-            padding: 40px;
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 32px 24px;
             text-align: center;
             cursor: pointer;
-            transition: all 0.3s ease;
-            background: #fafafa;
-            margin-bottom: 30px;
+            transition: all 0.2s ease;
+            background: var(--bg);
+            margin-bottom: 20px;
             position: relative;
         }
 
         .upload-area:hover {
-            border-color: #667eea;
-            background: #f5f5ff;
+            border-color: var(--accent);
+            background: #F0F9FF;
         }
 
         .upload-area.dragover {
-            border-color: #667eea;
-            background: #f0f0ff;
-            transform: scale(1.02);
+            border-color: var(--accent);
+            background: #E0F2FE;
+            transform: scale(1.01);
         }
 
         .upload-icon {
-            font-size: 48px;
-            color: #667eea;
-            margin-bottom: 10px;
+            font-size: 36px;
+            color: var(--accent);
+            margin-bottom: 8px;
+        }
+
+        /* Video Result Modal */
+        .video-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .video-modal.active {
+            display: flex;
+        }
+
+        .video-modal-content {
+            background: var(--bg);
+            border-radius: 16px;
+            max-width: 800px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 32px;
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: var(--bg-subtle);
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .modal-close:hover {
+            background: var(--border);
+        }
+
+        /* Progress Modal */
+        .progress-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .progress-modal.active {
+            display: flex;
+        }
+
+        .progress-modal-content {
+            background: var(--bg);
+            border-radius: 16px;
+            max-width: 500px;
+            width: 100%;
+            padding: 32px;
         }
 
         .preview-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 15px;
-            margin: 20px 0;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 12px;
+            margin: 0;
         }
 
         .preview-item {
             position: relative;
             aspect-ratio: 1;
-            border-radius: 10px;
+            border-radius: 8px;
             overflow: hidden;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--border);
         }
 
         .preview-item img {
@@ -103,118 +289,154 @@
 
         .preview-item .remove-btn {
             position: absolute;
-            top: 5px;
-            right: 5px;
-            width: 30px;
-            height: 30px;
+            top: 4px;
+            right: 4px;
+            width: 24px;
+            height: 24px;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(0, 0, 0, 0.6);
             border: none;
             cursor: pointer;
-            font-size: 20px;
+            font-size: 16px;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            color: white;
+            transition: background 0.2s;
         }
 
         .preview-item .remove-btn:hover {
-            background: #ff4444;
-            color: white;
+            background: #EF4444;
         }
 
         .settings {
-            background: #f8f8f8;
-            padding: 30px;
-            border-radius: 15px;
-            margin: 30px 0;
-            display: none;
+            background: transparent;
+            border: none;
+            padding: 0;
+            border-radius: 0;
+            margin: 0;
+            display: block;
+        }
+
+        .settings h3 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            margin-top: 24px;
+            color: var(--text);
+        }
+
+        .settings h3:first-child {
+            margin-top: 0;
         }
 
         .setting-group {
-            margin-bottom: 20px;
+            margin-bottom: 24px;
         }
 
         .setting-group label {
             display: block;
             margin-bottom: 8px;
-            font-weight: 600;
-            color: #444;
+            font-weight: 500;
+            color: var(--text);
+            font-size: 14px;
         }
 
         .setting-group input[type="range"] {
             width: 100%;
             margin: 10px 0;
+            accent-color: var(--accent);
         }
 
-        .setting-group select {
+        .setting-group select,
+        .setting-group input[type="text"] {
             width: 100%;
-            padding: 10px;
-            border: 2px solid #ddd;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
             border-radius: 8px;
-            font-size: 16px;
+            font-size: 14px;
+            background: var(--bg);
+            color: var(--text);
+            transition: border-color 0.2s;
+        }
+
+        .setting-group select:focus,
+        .setting-group input[type="text"]:focus {
+            outline: none;
+            border-color: var(--accent);
         }
 
         .btn {
-            padding: 12px 30px;
+            padding: 10px 24px;
             border: none;
             border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
+            font-size: 14px;
+            font-weight: 500;
             cursor: pointer;
-            transition: all 0.3s ease;
-            margin: 5px;
+            transition: all 0.2s ease;
+            margin: 4px;
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--accent);
             color: white;
         }
 
         .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+            background: #0284C7;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
         }
 
         .btn-secondary {
-            background: #f0f0f0;
-            color: #333;
+            background: var(--bg-subtle);
+            color: var(--text);
+            border: 1px solid var(--border);
         }
 
         .btn-secondary:hover {
-            background: #e0e0e0;
+            background: var(--border);
         }
 
         .btn-success {
-            background: #48bb78;
+            background: #10B981;
             color: white;
         }
 
+        .btn-success:hover {
+            background: #059669;
+        }
+
         .status {
-            padding: 15px;
+            padding: 12px 16px;
             border-radius: 8px;
-            margin: 10px 0;
+            margin: 12px 0;
             display: none;
+            font-size: 14px;
         }
 
         .status.info {
-            background: #e3f2fd;
-            color: #1976d2;
+            background: #EFF6FF;
+            color: #1E40AF;
+            border: 1px solid #DBEAFE;
         }
 
         .status.success {
-            background: #e8f5e9;
-            color: #2e7d32;
+            background: #F0FDF4;
+            color: #15803D;
+            border: 1px solid #DCFCE7;
         }
 
         .status.error {
-            background: #ffebee;
-            color: #c62828;
+            background: #FEF2F2;
+            color: #DC2626;
+            border: 1px solid #FEE2E2;
         }
 
         .status.warning {
-            background: #fff3e0;
-            color: #e65100;
+            background: #FFFBEB;
+            color: #D97706;
+            border: 1px solid #FEF3C7;
         }
 
         /* Loading Skeleton Styles */
@@ -280,26 +502,37 @@
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Aiezzy Simvid</h1>
-        <p class="subtitle">Create beautiful slideshow videos from your images</p>
-
-        <!-- Image Upload Section -->
-        <div class="upload-area" id="imageUploadArea">
-            <div class="upload-icon">📸</div>
-            <p>Drag & drop images here or click to browse</p>
-            <button type="button" id="selectBtn" style="margin-top: 15px; padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">
-                Select Images
-            </button>
+    <!-- Header -->
+    <div class="header">
+        <div class="logo-section">
+            <img src="https://aiezzy.com/logo.png" alt="Aiezzy" class="logo">
+            <span class="header-title">Slideshow Video Maker</span>
         </div>
-        <input type="file" id="imageInput" multiple accept="image/*" style="display: none;">
+        <a href="https://aiezzy.com" class="back-link">← Back to Aiezzy</a>
+    </div>
 
-        <!-- Image Preview -->
-        <div class="preview-grid" id="imagePreview"></div>
+    <div class="container">
+        <div class="split-container">
+            <!-- Left Panel: Image Upload & Preview -->
+            <div class="left-panel">
+                <!-- Image Upload Section -->
+                <div class="upload-area" id="imageUploadArea">
+                    <div class="upload-icon">📸</div>
+                    <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">Drag & drop images here or click to browse</p>
+                    <button type="button" id="selectBtn" class="btn btn-primary" style="font-size: 14px;">
+                        Select Images
+                    </button>
+                </div>
+                <input type="file" id="imageInput" multiple accept="image/*" style="display: none;">
 
-        <!-- Settings -->
-        <div class="settings" id="settings">
-            <h3>Video Settings</h3>
+                <!-- Image Preview -->
+                <div class="preview-grid" id="imagePreview"></div>
+            </div>
+
+            <!-- Right Panel: Video Settings -->
+            <div class="right-panel">
+                <div class="panel-title">Video Settings</div>
+                <div class="settings" id="settings">
             <div class="setting-group">
                 <label>Duration per image: <span id="durationValue">2</span> seconds</label>
                 <input type="range" id="duration" min="1" max="10" value="2" oninput="document.getElementById('durationValue').textContent = this.value">
@@ -323,68 +556,77 @@
             </div>
 
             <!-- Audio Section -->
-            <h3 style="margin-top: 30px;">Background Music (Optional)</h3>
+            <h3>Background Music (Optional)</h3>
             <div class="audio-section">
-                <div style="margin-bottom: 15px;">
-                    <strong>Option 1:</strong> YouTube URL
-                    <input type="text" id="youtubeUrl" placeholder="https://www.youtube.com/watch?v=... (optional)" style="width: 100%; margin: 10px 0; padding: 10px; border: 2px solid #ddd; border-radius: 8px;">
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--text); font-size: 14px;">YouTube URL</label>
+                    <input type="text" id="youtubeUrl" placeholder="https://www.youtube.com/watch?v=... (optional)" style="width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; background: var(--bg); color: var(--text);" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
 
                     <!-- Time selection for YouTube audio -->
-                    <div style="display: flex; gap: 15px; margin: 10px 0; align-items: center;">
+                    <div style="display: flex; gap: 12px; margin: 16px 0; align-items: flex-end;">
                         <div style="flex: 1;">
-                            <label style="font-size: 14px; color: #666;">Start Time:</label>
+                            <label style="font-size: 14px; color: var(--text-muted); margin-bottom: 6px; display: block;">Start Time</label>
                             <input type="text" id="audioStartTime" placeholder="0:00"
-                                   style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 6px; margin-top: 5px;"
-                                   pattern="[0-9]{1,2}:[0-9]{2}" title="Format: MM:SS or M:SS">
+                                   style="width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; background: var(--bg); color: var(--text);"
+                                   pattern="[0-9]{1,2}:[0-9]{2}" title="Format: MM:SS or M:SS"
+                                   onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
                         </div>
                         <div style="flex: 1;">
-                            <label style="font-size: 14px; color: #666;">End Time:</label>
+                            <label style="font-size: 14px; color: var(--text-muted); margin-bottom: 6px; display: block;">End Time</label>
                             <input type="text" id="audioEndTime" placeholder="0:30"
-                                   style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 6px; margin-top: 5px;"
-                                   pattern="[0-9]{1,2}:[0-9]{2}" title="Format: MM:SS or M:SS">
+                                   style="width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; background: var(--bg); color: var(--text);"
+                                   pattern="[0-9]{1,2}:[0-9]{2}" title="Format: MM:SS or M:SS"
+                                   onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
                         </div>
-                        <button type="button" onclick="useFullAudio()"
-                                style="margin-top: 20px; padding: 8px 15px; background: #f0f0f0; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                        <button type="button" onclick="useFullAudio()" class="btn btn-secondary">
                             Use Full Audio
                         </button>
                     </div>
 
-                    <small style="color: #666;">Specify start and end times (MM:SS format) to use only part of the audio. Leave empty to use full audio.</small>
+                    <small style="color: var(--text-muted); font-size: 13px;">Specify start and end times (MM:SS format) to use only part of the audio. Leave empty to use full audio.</small>
                 </div>
-                <div style="margin-top: 20px;">
-                    <strong>Option 2:</strong> Upload your own audio
+                <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border);">
+                    <label style="display: block; margin-bottom: 12px; font-weight: 500; color: var(--text); font-size: 14px;">Or Upload Audio File</label>
                     <input type="file" id="audioInput" accept="audio/*" style="display: none;">
-                    <button class="btn btn-secondary" id="uploadAudioBtn" style="width: 100%; margin-top: 10px;">
+                    <button class="btn btn-secondary" id="uploadAudioBtn" style="width: 100%;">
                         Choose Audio File
                     </button>
                 </div>
                 <div id="audioStatus" class="status"></div>
             </div>
-        </div>
 
-        <!-- Action Buttons -->
-        <div style="text-align: center; margin-top: 30px; display: none;" id="actionButtons">
-            <button class="btn btn-primary" id="generateBtn" style="font-size: 18px; padding: 15px 40px;">
-                Generate Video
-            </button>
-            <button class="btn btn-secondary" id="clearBtn">Clear All</button>
-        </div>
-
-        <!-- Progress -->
-        <div id="progress" style="display: none; margin-top: 30px;">
-            <div style="background: #e0e0e0; border-radius: 10px; overflow: hidden;">
-                <div id="progressBar" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); height: 30px; width: 0%; transition: width 0.3s;"></div>
+            <!-- Action Buttons -->
+            <div style="margin-top: 32px;" id="actionButtons">
+                <button class="btn btn-primary" id="generateBtn" style="width: 100%; font-size: 16px; padding: 14px;">
+                    Generate Video
+                </button>
+                <button class="btn btn-secondary" id="clearBtn" style="width: 100%; margin-top: 12px;">Clear All</button>
             </div>
-            <div id="progressStatus" class="status"></div>
         </div>
+        </div>
+        </div>
+    </div>
 
-        <!-- Video Result -->
-        <div id="videoResult" style="display: none; margin-top: 30px; text-align: center;">
-            <h3>Your Video is Ready!</h3>
-            <video id="videoPlayer" controls style="width: 100%; max-width: 600px; margin: 20px 0; border-radius: 10px;"></video>
-            <div>
-                <a id="downloadLink" class="btn btn-success" download>Download Video</a>
-                <button class="btn btn-secondary" id="createNewBtn">Create New Video</button>
+    <!-- Progress Modal -->
+    <div class="progress-modal" id="progressModal">
+        <div class="progress-modal-content">
+            <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 24px; color: var(--text); text-align: center;">Generating Your Video...</h3>
+            <div style="background: var(--bg-subtle); border-radius: 8px; overflow: hidden; border: 1px solid var(--border); margin-bottom: 16px;">
+                <div id="progressBar" style="background: var(--accent); height: 8px; width: 0%; transition: width 0.3s ease;"></div>
+            </div>
+            <div id="progressStatus" class="status" style="text-align: center;"></div>
+        </div>
+    </div>
+
+    <!-- Video Result Modal -->
+    <div class="video-modal" id="videoModal">
+        <div class="video-modal-content">
+            <button class="modal-close" onclick="closeVideoModal()">×</button>
+            <h3 style="font-size: 24px; font-weight: 600; margin-bottom: 24px; color: var(--text); text-align: center;">Your Video is Ready! 🎉</h3>
+            <video id="videoPlayer" controls style="width: 100%; margin-bottom: 24px; border-radius: 12px; background: #000;"></video>
+            <div style="display: flex; gap: 12px;">
+                <a id="downloadLink" class="btn btn-success" download style="flex: 1; font-size: 16px; padding: 14px; text-align: center; text-decoration: none;">Download Video</a>
+                <button class="btn btn-secondary" id="createNewBtn" style="flex: 1;">Create New Video</button>
             </div>
         </div>
     </div>
@@ -483,8 +725,6 @@
                 }
             });
 
-            // Remove the downloadYouTubeBtn listener since we're removing that button
-
             // Action buttons
             generateBtn.addEventListener('click', generateVideo);
             clearBtn.addEventListener('click', clearAll);
@@ -542,6 +782,11 @@
 
             // Upload to server
             try {
+                // If we already have a session, append to it
+                if (sessionId) {
+                    formData.append('session_id', sessionId);
+                }
+
                 const response = await fetch('/upload_images', {
                     method: 'POST',
                     body: formData
@@ -550,10 +795,14 @@
                 const data = await response.json();
                 if (data.success) {
                     sessionId = data.session_id;
-                    uploadedImages = data.images;
-                    document.getElementById('settings').style.display = 'block';
-                    document.getElementById('actionButtons').style.display = 'block';
+                    // Append new images to existing array
+                    if (uploadedImages && uploadedImages.length > 0) {
+                        uploadedImages = uploadedImages.concat(data.images);
+                    } else {
+                        uploadedImages = data.images;
+                    }
                     console.log('Upload successful:', data);
+                    console.log('Total images:', uploadedImages.length);
                 }
             } catch (error) {
                 console.error('Upload error:', error);
@@ -615,7 +864,7 @@
                 return;
             }
 
-            document.getElementById('progress').style.display = 'block';
+            document.getElementById('progressModal').classList.add('active');
 
             // Check if YouTube URL is provided but not downloaded yet
             const youtubeUrl = document.getElementById('youtubeUrl').value.trim();
@@ -631,7 +880,7 @@
                 // Validate times
                 if (startTime !== null && endTime !== null && startTime >= endTime) {
                     showStatus('progressStatus', 'error', '❌ End time must be after start time');
-                    document.getElementById('progress').style.display = 'none';
+                    document.getElementById('progressModal').classList.remove('active');
                     return;
                 }
 
@@ -654,7 +903,6 @@
                     const audioData = await audioResponse.json();
                     if (audioData.success) {
                         audioId = audioData.audio_id;
-                        // Show duration info and any warnings
                         let statusMsg = 'Audio downloaded! ';
                         if (audioData.trimmed) {
                             statusMsg += `Using ${secondsToTime(startTime || 0)} to ${secondsToTime(endTime || audioData.duration)}. `;
@@ -692,27 +940,23 @@
                 const data = await response.json();
 
                 if (data.success && data.job_id) {
-                    // Connect to Server-Sent Events for real-time progress
                     const eventSource = new EventSource(`/progress/${data.job_id}`);
 
                     eventSource.onmessage = function(event) {
                         try {
                             const progress = JSON.parse(event.data);
 
-                            // Handle connection acknowledgment
                             if (progress.connected) {
                                 console.log('Connected to progress stream');
                                 return;
                             }
 
-                            // Handle error state
                             if (progress.error) {
                                 showStatus('progressStatus', 'error', '❌ ' + progress.error);
                                 eventSource.close();
                                 return;
                             }
 
-                            // Update progress bar and status message
                             if (progress.progress !== undefined) {
                                 updateProgress(progress.progress);
                             }
@@ -723,26 +967,22 @@
                                 showStatus('progressStatus', 'info', `${emoji} ${progress.message}`);
                             }
 
-                            // Handle completion
                             if (progress.stage === 'completed') {
                                 showStatus('progressStatus', 'success', '✅ Video generated successfully!');
 
-                                // Fetch video info and display using job_id
-                                const videoId = data.job_id; // Use job_id as video_id
+                                const videoId = data.job_id;
                                 const downloadUrl = `/download/${videoId}`;
                                 document.getElementById('videoPlayer').src = downloadUrl;
                                 document.getElementById('downloadLink').href = downloadUrl;
-                                document.getElementById('videoResult').style.display = 'block';
+                                document.getElementById('videoModal').classList.add('active');
 
                                 eventSource.close();
 
-                                // Hide progress after a moment
                                 setTimeout(() => {
-                                    document.getElementById('progress').style.display = 'none';
+                                    document.getElementById('progressModal').classList.remove('active');
                                 }, 2000);
                             }
 
-                            // Handle error stage
                             if (progress.stage === 'error') {
                                 eventSource.close();
                             }
@@ -759,16 +999,15 @@
                     };
 
                 } else if (data.success) {
-                    // Fallback if no job_id (shouldn't happen with updated backend)
                     updateProgress(100);
                     showStatus('progressStatus', 'success', '✅ Video generated successfully!');
 
                     document.getElementById('videoPlayer').src = data.download_url;
                     document.getElementById('downloadLink').href = data.download_url;
-                    document.getElementById('videoResult').style.display = 'block';
+                    document.getElementById('videoModal').classList.add('active');
 
                     setTimeout(() => {
-                        document.getElementById('progress').style.display = 'none';
+                        document.getElementById('progressModal').classList.remove('active');
                     }, 2000);
                 } else {
                     showStatus('progressStatus', 'error', '❌ ' + (data.error || 'Unknown error'));
@@ -796,14 +1035,16 @@
             uploadedImages = [];
             sessionId = null;
             audioId = null;
-            document.getElementById('settings').style.display = 'none';
-            document.getElementById('actionButtons').style.display = 'none';
         }
 
         function createNew() {
             clearAll();
-            document.getElementById('videoResult').style.display = 'none';
-            document.getElementById('progress').style.display = 'none';
+            closeVideoModal();
+            document.getElementById('progressModal').classList.remove('active');
+        }
+
+        function closeVideoModal() {
+            document.getElementById('videoModal').classList.remove('active');
         }
     </script>
 </body>
