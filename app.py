@@ -65,6 +65,30 @@ limiter = Limiter(
     storage_uri=rate_limit_storage,
 )
 
+# Return JSON for HTTP errors instead of HTML
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    return jsonify({
+        'error': 'Rate limit exceeded. Please wait before trying again.',
+        'retry_after': e.description
+    }), 429
+
+@app.errorhandler(500)
+def internal_error_handler(e):
+    return jsonify({
+        'error': 'Internal server error. Please try again later.',
+        'details': str(e) if app.debug else None
+    }), 500
+
+@app.errorhandler(404)
+def not_found_handler(e):
+    # Only return JSON for API routes
+    if request.path.startswith('/admin') and not request.path.endswith('.html'):
+        return jsonify({'error': 'Not found'}), 404
+    if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
+        return jsonify({'error': 'Not found'}), 404
+    return e  # Return default HTML 404 for browser requests
+
 # Celery integration (optional - falls back to RQ if not configured)
 USE_CELERY = os.environ.get('USE_CELERY', 'false').lower() == 'true'
 celery_app = None
