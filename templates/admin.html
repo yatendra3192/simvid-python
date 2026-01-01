@@ -24,11 +24,7 @@
             --gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -38,728 +34,265 @@
             line-height: 1.6;
         }
 
-        /* Scrollbar */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: var(--bg-secondary); }
         ::-webkit-scrollbar-thumb { background: var(--bg-tertiary); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--border); }
 
-        /* Toast Notifications */
-        .toast-container {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .toast {
-            padding: 16px 24px;
-            border-radius: 12px;
-            color: white;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            animation: slideIn 0.3s ease;
-            box-shadow: 0 10px 40px var(--shadow);
-        }
-
+        /* Toast */
+        .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .toast { padding: 16px 24px; border-radius: 12px; color: white; font-weight: 500; display: flex; align-items: center; gap: 12px; animation: slideIn 0.3s ease; box-shadow: 0 10px 40px var(--shadow); }
         .toast.success { background: var(--success); }
         .toast.error { background: var(--danger); }
-        .toast.warning { background: var(--warning); }
         .toast.info { background: var(--accent); }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
+        /* Login */
+        .login-container { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--gradient); }
+        .login-card { background: var(--bg-secondary); padding: 48px; border-radius: 24px; width: 100%; max-width: 420px; box-shadow: 0 25px 80px rgba(0, 0, 0, 0.5); }
+        .login-card h1 { text-align: center; margin-bottom: 8px; font-size: 28px; }
+        .login-card p { text-align: center; color: var(--text-secondary); margin-bottom: 32px; }
+        .input-group { margin-bottom: 20px; }
+        .input-group label { display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-secondary); }
+        .input-group input { width: 100%; padding: 14px 18px; border: 2px solid var(--border); border-radius: 12px; background: var(--bg-tertiary); color: var(--text-primary); font-size: 16px; transition: all 0.3s; }
+        .input-group input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2); }
 
-        /* Login Page */
-        .login-container {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: var(--gradient);
-        }
-
-        .login-card {
-            background: var(--bg-secondary);
-            padding: 48px;
-            border-radius: 24px;
-            width: 100%;
-            max-width: 420px;
-            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.5);
-        }
-
-        .login-card h1 {
-            text-align: center;
-            margin-bottom: 8px;
-            font-size: 28px;
-        }
-
-        .login-card p {
-            text-align: center;
-            color: var(--text-secondary);
-            margin-bottom: 32px;
-        }
-
-        .input-group {
-            margin-bottom: 20px;
-        }
-
-        .input-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: var(--text-secondary);
-        }
-
-        .input-group input {
-            width: 100%;
-            padding: 14px 18px;
-            border: 2px solid var(--border);
-            border-radius: 12px;
-            background: var(--bg-tertiary);
-            color: var(--text-primary);
-            font-size: 16px;
-            transition: all 0.3s;
-        }
-
-        .input-group input:focus {
-            outline: none;
-            border-color: var(--accent);
-            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
-        }
-
-        .btn {
-            padding: 14px 28px;
-            border: none;
-            border-radius: 12px;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-
-        .btn-primary {
-            background: var(--gradient);
-            color: white;
-            width: 100%;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.4);
-        }
-
-        .btn-secondary {
-            background: var(--bg-tertiary);
-            color: var(--text-primary);
-        }
-
-        .btn-secondary:hover {
-            background: var(--border);
-        }
-
-        .btn-danger {
-            background: var(--danger);
-            color: white;
-        }
-
-        .btn-danger:hover {
-            background: #dc2626;
-        }
-
-        .btn-success {
-            background: var(--success);
-            color: white;
-        }
-
-        .btn-sm {
-            padding: 8px 16px;
-            font-size: 13px;
-        }
+        /* Buttons */
+        .btn { padding: 12px 24px; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-primary { background: var(--gradient); color: white; width: 100%; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(59, 130, 246, 0.4); }
+        .btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); }
+        .btn-secondary:hover { background: var(--border); }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-sm { padding: 8px 16px; font-size: 12px; }
 
         /* Dashboard Layout */
-        .dashboard {
-            display: none;
-        }
+        .dashboard { display: none; }
+        .sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 260px; background: var(--bg-secondary); border-right: 1px solid var(--border); padding: 20px; display: flex; flex-direction: column; z-index: 100; }
+        .sidebar-logo { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+        .sidebar-logo img { width: 36px; height: 36px; border-radius: 8px; }
+        .sidebar-logo span { font-size: 18px; font-weight: 700; }
+        .nav-menu { flex: 1; }
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 10px; color: var(--text-secondary); cursor: pointer; transition: all 0.2s; margin-bottom: 4px; font-size: 14px; }
+        .nav-item:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+        .nav-item.active { background: var(--accent); color: white; }
+        .nav-item svg { width: 18px; height: 18px; }
 
-        .sidebar {
-            position: fixed;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 280px;
-            background: var(--bg-secondary);
-            border-right: 1px solid var(--border);
-            padding: 24px;
-            display: flex;
-            flex-direction: column;
-            z-index: 100;
-        }
+        .main-content { margin-left: 260px; padding: 24px; min-height: 100vh; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .header h1 { font-size: 24px; font-weight: 700; }
+        .header-actions { display: flex; gap: 12px; }
 
-        .sidebar-logo {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 32px;
-        }
-
-        .sidebar-logo img {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
-        }
-
-        .sidebar-logo span {
-            font-size: 20px;
-            font-weight: 700;
-        }
-
-        .nav-menu {
-            flex: 1;
-        }
-
-        .nav-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 14px 18px;
-            border-radius: 12px;
-            color: var(--text-secondary);
-            cursor: pointer;
-            transition: all 0.2s;
-            margin-bottom: 4px;
-        }
-
-        .nav-item:hover {
-            background: var(--bg-tertiary);
-            color: var(--text-primary);
-        }
-
-        .nav-item.active {
-            background: var(--accent);
-            color: white;
-        }
-
-        .nav-item svg {
-            width: 20px;
-            height: 20px;
-        }
-
-        .main-content {
-            margin-left: 280px;
-            padding: 32px;
-            min-height: 100vh;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 32px;
-        }
-
-        .header h1 {
-            font-size: 28px;
-            font-weight: 700;
-        }
-
-        .header-actions {
-            display: flex;
-            gap: 12px;
-        }
-
-        /* Stats Grid */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 20px;
-            margin-bottom: 32px;
-        }
-
-        .stat-card {
-            background: var(--bg-secondary);
-            border-radius: 16px;
-            padding: 24px;
-            border: 1px solid var(--border);
-            transition: all 0.3s;
-        }
-
-        .stat-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 20px 40px var(--shadow);
-        }
-
-        .stat-card .icon {
-            width: 48px;
-            height: 48px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 16px;
-            font-size: 24px;
-        }
-
+        /* Stats */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .stat-card { background: var(--bg-secondary); border-radius: 14px; padding: 20px; border: 1px solid var(--border); }
+        .stat-card .icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; font-size: 20px; }
         .stat-card .icon.blue { background: rgba(59, 130, 246, 0.2); }
         .stat-card .icon.green { background: rgba(34, 197, 94, 0.2); }
         .stat-card .icon.purple { background: rgba(139, 92, 246, 0.2); }
         .stat-card .icon.orange { background: rgba(245, 158, 11, 0.2); }
+        .stat-card .value { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+        .stat-card .label { color: var(--text-secondary); font-size: 13px; }
 
-        .stat-card .value {
-            font-size: 32px;
-            font-weight: 700;
-            margin-bottom: 4px;
-        }
+        /* Content Sections */
+        .content-section { display: none; }
+        .content-section.active { display: block; }
 
-        .stat-card .label {
-            color: var(--text-secondary);
-            font-size: 14px;
-        }
+        /* Project Cards - Main View */
+        .projects-grid { display: flex; flex-direction: column; gap: 20px; }
 
-        /* Charts */
-        .chart-container {
+        .project-card {
             background: var(--bg-secondary);
             border-radius: 16px;
-            padding: 24px;
             border: 1px solid var(--border);
-            margin-bottom: 24px;
-        }
-
-        .chart-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .chart-header h3 {
-            font-size: 18px;
-            font-weight: 600;
-        }
-
-        /* Activity Timeline */
-        .activity-timeline {
-            background: var(--bg-secondary);
-            border-radius: 16px;
-            padding: 24px;
-            border: 1px solid var(--border);
-        }
-
-        .timeline-item {
-            display: flex;
-            gap: 16px;
-            padding: 16px 0;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .timeline-item:last-child {
-            border-bottom: none;
-        }
-
-        .timeline-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-
-        .timeline-icon.upload { background: rgba(59, 130, 246, 0.2); color: var(--accent); }
-        .timeline-icon.audio { background: rgba(139, 92, 246, 0.2); color: #8b5cf6; }
-        .timeline-icon.video { background: rgba(34, 197, 94, 0.2); color: var(--success); }
-
-        .timeline-content {
-            flex: 1;
-        }
-
-        .timeline-title {
-            font-weight: 600;
-            margin-bottom: 4px;
-        }
-
-        .timeline-meta {
-            font-size: 13px;
-            color: var(--text-secondary);
-        }
-
-        /* File Cards */
-        .content-section {
-            display: none;
-        }
-
-        .content-section.active {
-            display: block;
-        }
-
-        .toolbar {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-            margin-bottom: 24px;
-            flex-wrap: wrap;
-        }
-
-        .search-box {
-            flex: 1;
-            min-width: 250px;
-            position: relative;
-        }
-
-        .search-box input {
-            width: 100%;
-            padding: 12px 18px 12px 48px;
-            border: 2px solid var(--border);
-            border-radius: 12px;
-            background: var(--bg-tertiary);
-            color: var(--text-primary);
-            font-size: 15px;
-        }
-
-        .search-box input:focus {
-            outline: none;
-            border-color: var(--accent);
-        }
-
-        .search-box svg {
-            position: absolute;
-            left: 16px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--text-muted);
-        }
-
-        .select-box {
-            padding: 12px 18px;
-            border: 2px solid var(--border);
-            border-radius: 12px;
-            background: var(--bg-tertiary);
-            color: var(--text-primary);
-            font-size: 15px;
-            cursor: pointer;
-        }
-
-        .file-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 20px;
-        }
-
-        .file-card {
-            background: var(--bg-secondary);
-            border-radius: 16px;
-            border: 2px solid var(--border);
             overflow: hidden;
             transition: all 0.3s;
         }
+        .project-card:hover { border-color: var(--accent); box-shadow: 0 10px 40px var(--shadow); }
 
-        .file-card:hover {
-            border-color: var(--accent);
-            transform: translateY(-4px);
-            box-shadow: 0 20px 40px var(--shadow);
+        .project-header {
+            display: flex;
+            gap: 20px;
+            padding: 20px;
         }
 
-        .file-card.selected {
-            border-color: var(--accent);
-            background: rgba(59, 130, 246, 0.1);
-        }
-
-        .file-card .preview {
+        /* Video Preview */
+        .project-video {
+            width: 280px;
+            min-width: 280px;
             height: 180px;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+        }
+        .project-video video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            cursor: pointer;
+        }
+
+        /* Project Info */
+        .project-info { flex: 1; display: flex; flex-direction: column; }
+        .project-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+        .project-meta { display: flex; flex-wrap: wrap; gap: 12px; color: var(--text-secondary); font-size: 13px; margin-bottom: 12px; }
+        .project-meta span { display: flex; align-items: center; gap: 4px; }
+        .project-actions { display: flex; gap: 8px; margin-top: auto; }
+
+        /* Images Strip */
+        .project-images {
+            display: flex;
+            gap: 8px;
+            padding: 0 20px 20px;
+            overflow-x: auto;
+            scrollbar-width: thin;
+        }
+        .project-images::-webkit-scrollbar { height: 6px; }
+        .project-images::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        .image-thumb {
+            width: 60px;
+            height: 60px;
+            min-width: 60px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid var(--border);
+            transition: all 0.2s;
+        }
+        .image-thumb:hover { border-color: var(--accent); transform: scale(1.05); }
+        .image-thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .image-thumb.more {
             background: var(--bg-tertiary);
             display: flex;
             align-items: center;
             justify-content: center;
-            position: relative;
-        }
-
-        .file-card .preview img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .file-card .preview video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            cursor: pointer;
-        }
-
-        /* Video hover-to-play */
-        .file-card .preview video:hover {
-            opacity: 0.9;
-        }
-
-        .video-play-icon {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 60px;
-            height: 60px;
-            background: rgba(0, 0, 0, 0.6);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            pointer-events: none;
-            transition: opacity 0.3s;
-        }
-
-        .file-card .preview:hover .video-play-icon {
-            opacity: 0;
-        }
-
-        /* Thumbnail grid for images */
-        .thumbnail-grid {
-            position: relative;
-        }
-
-        .image-count {
-            position: absolute;
-            bottom: 8px;
-            right: 8px;
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 4px 10px;
-            border-radius: 12px;
             font-size: 12px;
             font-weight: 600;
-        }
-
-        /* Audio thumbnail */
-        .audio-thumbnail {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .audio-waveform {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 3px;
-            height: 60px;
-        }
-
-        .audio-waveform span {
-            width: 4px;
-            background: var(--accent);
-            border-radius: 2px;
-            animation: wave 1s ease-in-out infinite;
-        }
-
-        .audio-waveform span:nth-child(1) { height: 20px; animation-delay: 0s; }
-        .audio-waveform span:nth-child(2) { height: 35px; animation-delay: 0.1s; }
-        .audio-waveform span:nth-child(3) { height: 50px; animation-delay: 0.2s; }
-        .audio-waveform span:nth-child(4) { height: 40px; animation-delay: 0.3s; }
-        .audio-waveform span:nth-child(5) { height: 25px; animation-delay: 0.4s; }
-        .audio-waveform span:nth-child(6) { height: 45px; animation-delay: 0.5s; }
-        .audio-waveform span:nth-child(7) { height: 30px; animation-delay: 0.6s; }
-
-        @keyframes wave {
-            0%, 100% { transform: scaleY(1); }
-            50% { transform: scaleY(0.5); }
-        }
-
-        .file-card .checkbox {
-            position: absolute;
-            top: 12px;
-            left: 12px;
-            width: 24px;
-            height: 24px;
-            border: 2px solid white;
-            border-radius: 6px;
-            background: rgba(0,0,0,0.5);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .file-card .checkbox.checked {
-            background: var(--accent);
-            border-color: var(--accent);
-        }
-
-        .file-card .info {
-            padding: 16px;
-        }
-
-        .file-card .name {
-            font-weight: 600;
-            margin-bottom: 8px;
-            word-break: break-all;
-            font-size: 14px;
-        }
-
-        .file-card .meta {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
             color: var(--text-secondary);
-            font-size: 13px;
+        }
+
+        /* Audio Info in Project */
+        .project-audio {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
             margin-bottom: 12px;
         }
-
-        .file-card .actions {
-            display: flex;
-            gap: 8px;
-        }
-
-        .badge {
-            padding: 4px 10px;
+        .project-audio img {
+            width: 40px;
+            height: 40px;
             border-radius: 6px;
-            font-size: 12px;
-            font-weight: 600;
+            object-fit: cover;
         }
+        .project-audio .audio-info { flex: 1; }
+        .project-audio .audio-title { font-size: 13px; font-weight: 500; }
+        .project-audio .audio-source { font-size: 11px; color: var(--text-secondary); }
 
+        /* Badges */
+        .badge { padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; }
         .badge.blue { background: rgba(59, 130, 246, 0.2); color: var(--accent); }
         .badge.green { background: rgba(34, 197, 94, 0.2); color: var(--success); }
         .badge.purple { background: rgba(139, 92, 246, 0.2); color: #8b5cf6; }
 
-        /* Cleanup Modal */
-        .modal-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.7);
-            display: none;
+        /* File Cards for Legacy Views */
+        .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+        .file-card { background: var(--bg-secondary); border-radius: 14px; border: 1px solid var(--border); overflow: hidden; transition: all 0.2s; }
+        .file-card:hover { border-color: var(--accent); }
+        .file-card .preview { height: 160px; background: var(--bg-tertiary); display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+        .file-card .preview img, .file-card .preview video { width: 100%; height: 100%; object-fit: cover; }
+        .file-card .info { padding: 14px; }
+        .file-card .name { font-weight: 600; margin-bottom: 6px; word-break: break-all; font-size: 13px; }
+        .file-card .meta { display: flex; flex-wrap: wrap; gap: 10px; color: var(--text-secondary); font-size: 12px; margin-bottom: 10px; }
+        .file-card .actions { display: flex; gap: 8px; }
+
+        /* Image grid in file card */
+        .image-grid-preview {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2px;
+            width: 100%;
+            height: 100%;
+        }
+        .image-grid-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .image-grid-preview .more-overlay {
+            background: rgba(0,0,0,0.7);
+            display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 1000;
-            backdrop-filter: blur(4px);
-        }
-
-        .modal-overlay.show {
-            display: flex;
-        }
-
-        .modal {
-            background: var(--bg-secondary);
-            border-radius: 20px;
-            padding: 32px;
-            width: 100%;
-            max-width: 480px;
-            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.5);
-        }
-
-        .modal h2 {
-            margin-bottom: 8px;
-        }
-
-        .modal p {
-            color: var(--text-secondary);
-            margin-bottom: 24px;
-        }
-
-        .modal-actions {
-            display: flex;
-            gap: 12px;
-            justify-content: flex-end;
-        }
-
-        /* Bulk Action Bar */
-        .bulk-action-bar {
-            position: fixed;
-            bottom: 32px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 16px 24px;
-            display: none;
-            align-items: center;
-            gap: 16px;
-            box-shadow: 0 20px 60px var(--shadow);
-            z-index: 100;
-        }
-
-        .bulk-action-bar.show {
-            display: flex;
-        }
-
-        .bulk-count {
+            font-size: 14px;
             font-weight: 600;
         }
 
-        /* Empty State */
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: var(--text-secondary);
-        }
+        /* Audio waveform animation */
+        .audio-waveform { display: flex; align-items: center; justify-content: center; gap: 3px; height: 50px; }
+        .audio-waveform span { width: 4px; background: var(--accent); border-radius: 2px; animation: wave 1s ease-in-out infinite; }
+        .audio-waveform span:nth-child(1) { height: 18px; animation-delay: 0s; }
+        .audio-waveform span:nth-child(2) { height: 30px; animation-delay: 0.1s; }
+        .audio-waveform span:nth-child(3) { height: 45px; animation-delay: 0.2s; }
+        .audio-waveform span:nth-child(4) { height: 35px; animation-delay: 0.3s; }
+        .audio-waveform span:nth-child(5) { height: 22px; animation-delay: 0.4s; }
+        .audio-waveform span:nth-child(6) { height: 40px; animation-delay: 0.5s; }
+        .audio-waveform span:nth-child(7) { height: 28px; animation-delay: 0.6s; }
+        @keyframes wave { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(0.5); } }
 
-        .empty-state svg {
-            width: 64px;
-            height: 64px;
-            margin-bottom: 16px;
-            opacity: 0.5;
-        }
+        /* Settings Section */
+        .settings-card { background: var(--bg-secondary); border-radius: 14px; padding: 20px; border: 1px solid var(--border); margin-bottom: 16px; }
+        .settings-card h3 { margin-bottom: 12px; font-size: 16px; }
+        .settings-card p { color: var(--text-secondary); margin-bottom: 16px; font-size: 14px; }
+        .settings-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .select-box { padding: 10px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-tertiary); color: var(--text-primary); font-size: 14px; }
+
+        /* Empty State */
+        .empty-state { text-align: center; padding: 60px 20px; color: var(--text-secondary); }
+        .empty-state .icon { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
 
         /* Loading */
-        .loading {
-            text-align: center;
-            padding: 40px;
-        }
+        .loading { text-align: center; padding: 40px; }
+        .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 12px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid var(--border);
-            border-top-color: var(--accent);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 16px;
-        }
+        /* Modal */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
+        .modal-overlay.show { display: flex; }
+        .modal { background: var(--bg-secondary); border-radius: 16px; padding: 28px; width: 100%; max-width: 500px; }
+        .modal h2 { margin-bottom: 8px; }
+        .modal p { color: var(--text-secondary); margin-bottom: 20px; }
+        .modal-actions { display: flex; gap: 12px; justify-content: flex-end; }
 
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+        /* Image Preview Modal */
+        .image-modal { max-width: 90vw; max-height: 90vh; padding: 0; background: transparent; }
+        .image-modal img { max-width: 100%; max-height: 90vh; border-radius: 12px; }
 
         /* Responsive */
         @media (max-width: 1024px) {
-            .sidebar {
-                transform: translateX(-100%);
-            }
-            .main-content {
-                margin-left: 0;
-            }
+            .sidebar { width: 220px; }
+            .main-content { margin-left: 220px; }
+            .project-header { flex-direction: column; }
+            .project-video { width: 100%; height: 200px; }
         }
-
-        @media (max-width: 640px) {
-            .stats-grid {
-                grid-template-columns: 1fr 1fr;
-            }
-            .file-grid {
-                grid-template-columns: 1fr;
-            }
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+            .main-content { margin-left: 0; }
+            .stats-grid { grid-template-columns: 1fr 1fr; }
         }
     </style>
 </head>
 <body>
-    <!-- Toast Container -->
     <div id="toastContainer" class="toast-container"></div>
 
-    <!-- Login Page -->
+    <!-- Login -->
     <div id="loginPage" class="login-container">
         <div class="login-card">
             <h1>Admin Dashboard</h1>
-            <p>Sign in to manage your Aiezzy Video instance</p>
+            <p>Sign in to manage Aiezzy Video</p>
             <div class="input-group">
                 <label>Password</label>
                 <input type="password" id="passwordInput" placeholder="Enter admin password" onkeypress="if(event.key==='Enter') login()">
@@ -770,16 +303,15 @@
 
     <!-- Dashboard -->
     <div id="dashboard" class="dashboard">
-        <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-logo">
                 <img src="https://aiezzy.com/logo.png" alt="Aiezzy">
-                <span>Aiezzy Admin</span>
+                <span>Admin</span>
             </div>
             <nav class="nav-menu">
-                <div class="nav-item active" onclick="showSection('overview')">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
-                    Overview
+                <div class="nav-item active" onclick="showSection('projects')">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                    Projects
                 </div>
                 <div class="nav-item" onclick="showSection('images')">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
@@ -787,86 +319,51 @@
                 </div>
                 <div class="nav-item" onclick="showSection('audio')">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg>
-                    Audio Files
-                </div>
-                <div class="nav-item" onclick="showSection('videos')">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                    Videos
+                    Audio
                 </div>
                 <div class="nav-item" onclick="showSection('settings')">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                     Settings
                 </div>
             </nav>
-            <button class="btn btn-secondary" onclick="logout()" style="width: 100%;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-                Logout
-            </button>
+            <button class="btn btn-secondary" onclick="logout()" style="width: 100%;">Logout</button>
         </aside>
 
-        <!-- Main Content -->
         <main class="main-content">
-            <!-- Overview Section -->
-            <section id="sectionOverview" class="content-section active">
+            <!-- Projects Section -->
+            <section id="sectionProjects" class="content-section active">
                 <div class="header">
-                    <h1>Overview</h1>
+                    <h1>Projects</h1>
                     <div class="header-actions">
                         <button class="btn btn-secondary" onclick="loadData()">Refresh</button>
-                        <button class="btn btn-primary" onclick="exportData()">Export Data</button>
                     </div>
                 </div>
 
-                <!-- Stats -->
                 <div class="stats-grid">
                     <div class="stat-card">
+                        <div class="icon green">&#127909;</div>
+                        <div class="value" id="statProjects">0</div>
+                        <div class="label">Total Projects</div>
+                    </div>
+                    <div class="stat-card">
                         <div class="icon blue">&#128247;</div>
-                        <div class="value" id="statSessions">0</div>
-                        <div class="label">Image Sessions</div>
+                        <div class="value" id="statImages">0</div>
+                        <div class="label">Images Used</div>
                     </div>
                     <div class="stat-card">
                         <div class="icon purple">&#127925;</div>
-                        <div class="value" id="statAudio">0</div>
-                        <div class="label">Audio Files</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="icon green">&#127909;</div>
-                        <div class="value" id="statVideos">0</div>
-                        <div class="label">Videos Generated</div>
+                        <div class="value" id="statAudioUsed">0</div>
+                        <div class="label">Audio Tracks</div>
                     </div>
                     <div class="stat-card">
                         <div class="icon orange">&#128190;</div>
                         <div class="value" id="statStorage">0 MB</div>
-                        <div class="label">Total Storage</div>
+                        <div class="label">Storage Used</div>
                     </div>
                 </div>
 
-                <!-- Charts Row -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
-                    <div class="chart-container">
-                        <div class="chart-header">
-                            <h3>Storage Distribution</h3>
-                        </div>
-                        <canvas id="storageChart" height="200"></canvas>
-                    </div>
-                    <div class="chart-container">
-                        <div class="chart-header">
-                            <h3>Files by Age</h3>
-                        </div>
-                        <canvas id="ageChart" height="200"></canvas>
-                    </div>
-                </div>
-
-                <!-- Activity Timeline -->
-                <div class="activity-timeline">
-                    <div class="chart-header">
-                        <h3>Recent Activity</h3>
-                    </div>
-                    <div id="activityList">
-                        <div class="loading">
-                            <div class="spinner"></div>
-                            <p>Loading activity...</p>
-                        </div>
-                    </div>
+                <div id="projectsList" class="projects-grid">
+                    <div class="loading"><div class="spinner"></div><p>Loading projects...</p></div>
                 </div>
             </section>
 
@@ -875,19 +372,7 @@
                 <div class="header">
                     <h1>Image Sessions</h1>
                 </div>
-                <div class="toolbar">
-                    <div class="search-box">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                        <input type="text" id="searchImages" placeholder="Search sessions..." oninput="filterItems('images')">
-                    </div>
-                    <select class="select-box" id="sortImages" onchange="sortItems('images')">
-                        <option value="date-desc">Newest First</option>
-                        <option value="date-asc">Oldest First</option>
-                        <option value="size-desc">Largest First</option>
-                        <option value="size-asc">Smallest First</option>
-                    </select>
-                    <button class="btn btn-secondary" onclick="selectAll('images')">Select All</button>
-                </div>
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">Uploaded image sessions that haven't been used in a project yet, or are orphaned.</p>
                 <div id="imagesList" class="file-grid">
                     <div class="loading"><div class="spinner"></div><p>Loading...</p></div>
                 </div>
@@ -898,41 +383,8 @@
                 <div class="header">
                     <h1>Audio Files</h1>
                 </div>
-                <div class="toolbar">
-                    <div class="search-box">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                        <input type="text" id="searchAudio" placeholder="Search audio..." oninput="filterItems('audio')">
-                    </div>
-                    <select class="select-box" id="sortAudio" onchange="sortItems('audio')">
-                        <option value="date-desc">Newest First</option>
-                        <option value="date-asc">Oldest First</option>
-                        <option value="size-desc">Largest First</option>
-                    </select>
-                    <button class="btn btn-secondary" onclick="selectAll('audio')">Select All</button>
-                </div>
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">Downloaded audio files available for video projects.</p>
                 <div id="audioList" class="file-grid">
-                    <div class="loading"><div class="spinner"></div><p>Loading...</p></div>
-                </div>
-            </section>
-
-            <!-- Videos Section -->
-            <section id="sectionVideos" class="content-section">
-                <div class="header">
-                    <h1>Generated Videos</h1>
-                </div>
-                <div class="toolbar">
-                    <div class="search-box">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                        <input type="text" id="searchVideos" placeholder="Search videos..." oninput="filterItems('videos')">
-                    </div>
-                    <select class="select-box" id="sortVideos" onchange="sortItems('videos')">
-                        <option value="date-desc">Newest First</option>
-                        <option value="date-asc">Oldest First</option>
-                        <option value="size-desc">Largest First</option>
-                    </select>
-                    <button class="btn btn-secondary" onclick="selectAll('videos')">Select All</button>
-                </div>
-                <div id="videosList" class="file-grid">
                     <div class="loading"><div class="spinner"></div><p>Loading...</p></div>
                 </div>
             </section>
@@ -943,12 +395,10 @@
                     <h1>Settings</h1>
                 </div>
 
-                <div class="chart-container">
-                    <h3 style="margin-bottom: 16px;">Cleanup Files</h3>
-                    <p style="color: var(--text-secondary); margin-bottom: 20px;">
-                        Delete files older than the specified time. This action cannot be undone.
-                    </p>
-                    <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                <div class="settings-card">
+                    <h3>Cleanup Files</h3>
+                    <p>Delete files older than the specified time. This cannot be undone.</p>
+                    <div class="settings-row">
                         <span>Delete files older than:</span>
                         <select class="select-box" id="cleanupHours">
                             <option value="1">1 hour</option>
@@ -961,31 +411,18 @@
                     </div>
                 </div>
 
-                <div class="chart-container">
-                    <h3 style="margin-bottom: 16px;">Export Data</h3>
-                    <p style="color: var(--text-secondary); margin-bottom: 20px;">
-                        Download a JSON export of all sessions, audio files, and videos.
-                    </p>
-                    <button class="btn btn-primary" onclick="exportData()">Download Export</button>
+                <div class="settings-card">
+                    <h3>Export Data</h3>
+                    <p>Download a JSON export of all sessions and files.</p>
+                    <button class="btn btn-secondary" onclick="exportData()">Download Export</button>
                 </div>
 
-                <div class="chart-container">
-                    <h3 style="margin-bottom: 16px;">About</h3>
-                    <p style="color: var(--text-secondary);">
-                        Aiezzy Video - Slideshow Video Generator<br>
-                        Admin Panel v2.0<br><br>
-                        Automatic cleanup has been <strong style="color: var(--success);">disabled</strong>. Files will only be deleted manually through this panel.
-                    </p>
+                <div class="settings-card">
+                    <h3>About</h3>
+                    <p>Aiezzy Video - Slideshow Video Generator<br>Admin Panel v3.0 - Project View</p>
                 </div>
             </section>
         </main>
-    </div>
-
-    <!-- Bulk Action Bar -->
-    <div id="bulkActionBar" class="bulk-action-bar">
-        <span class="bulk-count"><span id="selectedCount">0</span> selected</span>
-        <button class="btn btn-secondary btn-sm" onclick="clearSelection()">Clear</button>
-        <button class="btn btn-danger btn-sm" onclick="bulkDelete()">Delete Selected</button>
     </div>
 
     <!-- Cleanup Modal -->
@@ -994,26 +431,29 @@
             <h2>Cleanup Complete</h2>
             <p id="cleanupResult">Deleted 0 files.</p>
             <div class="modal-actions">
-                <button class="btn btn-primary" onclick="closeModal('cleanupModal')">Close</button>
+                <button class="btn btn-secondary" onclick="closeModal('cleanupModal')">Close</button>
             </div>
         </div>
     </div>
 
-    <script>
-        // State
-        let data = { images: [], audio: [], videos: [], stats: {} };
-        let analytics = {};
-        let selected = { images: new Set(), audio: new Set(), videos: new Set() };
-        let storageChart = null;
-        let ageChart = null;
+    <!-- Image Preview Modal -->
+    <div id="imagePreviewModal" class="modal-overlay" onclick="closeModal('imagePreviewModal')">
+        <div class="modal image-modal">
+            <img id="previewImage" src="" alt="Preview">
+        </div>
+    </div>
 
-        // Init
+    <script>
+        let data = { images: [], audio: [], videos: [], stats: {} };
+        let projects = [];
+        const token = () => localStorage.getItem('adminToken');
+
         checkAuth();
 
         function checkAuth() {
-            const token = localStorage.getItem('adminToken');
-            if (token) {
-                fetch('/admin/verify', { headers: { 'Authorization': token } })
+            const t = token();
+            if (t) {
+                fetch('/admin/verify', { headers: { 'Authorization': t } })
                     .then(r => r.json())
                     .then(d => d.valid ? showDashboard() : showLogin())
                     .catch(() => showLogin());
@@ -1036,7 +476,6 @@
         async function login() {
             const password = document.getElementById('passwordInput').value;
             if (!password) return toast('Please enter password', 'error');
-
             try {
                 const res = await fetch('/admin/login', {
                     method: 'POST',
@@ -1059,111 +498,129 @@
         function logout() {
             localStorage.removeItem('adminToken');
             showLogin();
-            toast('Logged out', 'info');
         }
 
         async function loadData() {
-            const token = localStorage.getItem('adminToken');
             try {
-                // Load main data
-                const res = await fetch('/admin/data', { headers: { 'Authorization': token } });
-                if (!res.ok) throw new Error('Unauthorized');
-                data = await res.json();
+                // Load projects
+                const projectsRes = await fetch('/admin/projects', { headers: { 'Authorization': token() } });
+                const projectsData = await projectsRes.json();
+                projects = projectsData.projects || [];
 
-                // Load analytics
-                const analyticsRes = await fetch('/admin/analytics', { headers: { 'Authorization': token } });
-                analytics = await analyticsRes.json();
+                // Load other data for legacy views
+                const dataRes = await fetch('/admin/data', { headers: { 'Authorization': token() } });
+                data = await dataRes.json();
 
                 updateStats();
-                renderCharts();
-                renderActivity();
+                renderProjects();
                 renderImages();
                 renderAudio();
-                renderVideos();
             } catch (e) {
                 toast('Failed to load data', 'error');
-                if (e.message === 'Unauthorized') logout();
             }
         }
 
         function updateStats() {
-            document.getElementById('statSessions').textContent = data.stats.image_sessions || 0;
-            document.getElementById('statAudio').textContent = data.stats.audio_files || 0;
-            document.getElementById('statVideos').textContent = data.stats.videos || 0;
-            document.getElementById('statStorage').textContent = formatSize(data.stats.total_size || 0);
-        }
+            document.getElementById('statProjects').textContent = projects.length;
 
-        function renderCharts() {
-            // Storage Chart
-            const storageCtx = document.getElementById('storageChart').getContext('2d');
-            if (storageChart) storageChart.destroy();
-            storageChart = new Chart(storageCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Images', 'Audio', 'Videos'],
-                    datasets: [{
-                        data: [
-                            analytics.storage_by_type?.images || 0,
-                            analytics.storage_by_type?.audio || 0,
-                            analytics.storage_by_type?.videos || 0
-                        ],
-                        backgroundColor: ['#3b82f6', '#8b5cf6', '#22c55e'],
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: { position: 'bottom', labels: { color: '#94a3b8' } }
-                    }
-                }
+            let totalImages = 0;
+            let audioCount = 0;
+            projects.forEach(p => {
+                totalImages += p.images?.length || 0;
+                if (p.audio) audioCount++;
             });
 
-            // Age Chart
-            const ageCtx = document.getElementById('ageChart').getContext('2d');
-            if (ageChart) ageChart.destroy();
-            const ageData = analytics.files_by_age || {};
-            ageChart = new Chart(ageCtx, {
-                type: 'bar',
-                data: {
-                    labels: ['< 1h', '1-6h', '6-24h', '1-7d', '> 7d'],
-                    datasets: [{
-                        label: 'Files',
-                        data: [ageData['1h'] || 0, ageData['6h'] || 0, ageData['24h'] || 0, ageData['7d'] || 0, ageData['older'] || 0],
-                        backgroundColor: '#3b82f6',
-                        borderRadius: 8
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
-                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
-                    }
-                }
-            });
+            document.getElementById('statImages').textContent = totalImages;
+            document.getElementById('statAudioUsed').textContent = audioCount;
+            document.getElementById('statStorage').textContent = formatSize(data.stats?.total_size || 0);
         }
 
-        function renderActivity() {
-            const list = document.getElementById('activityList');
-            const activity = analytics.recent_activity || [];
+        function renderProjects() {
+            const list = document.getElementById('projectsList');
 
-            if (activity.length === 0) {
-                list.innerHTML = '<div class="empty-state"><p>No recent activity</p></div>';
+            if (projects.length === 0) {
+                list.innerHTML = `<div class="empty-state">
+                    <div class="icon">&#127909;</div>
+                    <p>No projects yet. Generate a video to see it here.</p>
+                </div>`;
                 return;
             }
 
-            list.innerHTML = activity.slice(0, 10).map(item => {
-                const icon = item.type === 'upload' ? 'upload' : item.type === 'audio' ? 'audio' : 'video';
-                const emoji = item.type === 'upload' ? '&#128247;' : item.type === 'audio' ? '&#127925;' : '&#127909;';
-                return `
-                    <div class="timeline-item">
-                        <div class="timeline-icon ${icon}">${emoji}</div>
-                        <div class="timeline-content">
-                            <div class="timeline-title">${item.type.charAt(0).toUpperCase() + item.type.slice(1)}: ${item.id.substring(0, 8)}...</div>
-                            <div class="timeline-meta">${formatDate(item.created)} &bull; ${formatSize(item.size)}</div>
+            list.innerHTML = projects.map(p => {
+                const video = p.video || {};
+                const images = p.images || [];
+                const audio = p.audio;
+                const settings = p.settings || {};
+
+                // Video preview URL
+                const videoUrl = `/admin/preview/video/${video.id}?token=${token()}`;
+
+                // Image thumbnails (show first 8, then +more)
+                const maxImages = 8;
+                const displayImages = images.slice(0, maxImages);
+                const moreCount = images.length - maxImages;
+
+                let imagesHtml = displayImages.map(img => `
+                    <div class="image-thumb" onclick="previewImage('${p.session_id}', '${img.name}')">
+                        <img src="/admin/preview/image/${img.session_id}/${img.name}?token=${token()}" alt="">
+                    </div>
+                `).join('');
+
+                if (moreCount > 0) {
+                    imagesHtml += `<div class="image-thumb more">+${moreCount}</div>`;
+                }
+
+                // Audio section
+                let audioHtml = '';
+                if (audio) {
+                    const thumbUrl = audio.video_id
+                        ? `https://img.youtube.com/vi/${audio.video_id}/mqdefault.jpg`
+                        : '';
+                    audioHtml = `
+                        <div class="project-audio">
+                            ${thumbUrl
+                                ? `<img src="${thumbUrl}" alt="YouTube">`
+                                : `<div style="width:40px;height:40px;background:var(--bg-primary);border-radius:6px;display:flex;align-items:center;justify-content:center;">&#127925;</div>`
+                            }
+                            <div class="audio-info">
+                                <div class="audio-title">${audio.title || audio.name || 'Audio Track'}</div>
+                                <div class="audio-source">${audio.video_id ? 'YouTube' : 'Uploaded'} • ${formatSize(audio.size || 0)}</div>
+                            </div>
                         </div>
+                    `;
+                }
+
+                return `
+                    <div class="project-card" data-id="${p.id}">
+                        <div class="project-header">
+                            <div class="project-video">
+                                <video src="${videoUrl}"
+                                       preload="metadata"
+                                       muted
+                                       loop
+                                       onmouseenter="this.play()"
+                                       onmouseleave="this.pause(); this.currentTime=0;"
+                                       onclick="this.paused ? this.play() : this.pause()"></video>
+                            </div>
+                            <div class="project-info">
+                                <div class="project-title">
+                                    <span class="badge green">Video</span>
+                                    Project ${p.id.substring(0, 8)}
+                                </div>
+                                <div class="project-meta">
+                                    <span>&#128247; ${images.length} images</span>
+                                    <span>&#128337; ${settings.duration || 2}s per slide</span>
+                                    <span>&#128250; ${settings.resolution || 'Unknown'}</span>
+                                    <span>&#128190; ${formatSize(video.size || 0)}</span>
+                                </div>
+                                ${audioHtml}
+                                <div class="project-actions">
+                                    <button class="btn btn-secondary btn-sm" onclick="window.open('/download/${video.id}')">Download Video</button>
+                                    <button class="btn btn-danger btn-sm" onclick="deleteProject('${p.id}')">Delete Project</button>
+                                </div>
+                            </div>
+                        </div>
+                        ${images.length > 0 ? `<div class="project-images">${imagesHtml}</div>` : ''}
                     </div>
                 `;
             }).join('');
@@ -1174,38 +631,47 @@
             const sessions = data.images || [];
 
             if (sessions.length === 0) {
-                list.innerHTML = '<div class="empty-state"><p>No image sessions found</p></div>';
+                list.innerHTML = '<div class="empty-state"><div class="icon">&#128247;</div><p>No image sessions</p></div>';
                 return;
             }
 
-            const token = localStorage.getItem('adminToken');
             list.innerHTML = sessions.map(s => {
-                const firstImage = s.images && s.images.length > 0 ? s.images[0].name : null;
-                const thumbUrl = firstImage ? `/admin/preview/image/${s.session_id}/${firstImage}?token=${token}` : '';
+                const images = s.images || [];
+                const displayImages = images.slice(0, 6);
+
+                let previewHtml = '';
+                if (displayImages.length > 0) {
+                    previewHtml = `<div class="image-grid-preview">`;
+                    displayImages.forEach((img, i) => {
+                        if (i < 5) {
+                            previewHtml += `<img src="/admin/preview/image/${s.session_id}/${img.name}?token=${token()}" alt="">`;
+                        } else if (i === 5 && images.length > 6) {
+                            previewHtml += `<div class="more-overlay">+${images.length - 5}</div>`;
+                        } else {
+                            previewHtml += `<img src="/admin/preview/image/${s.session_id}/${img.name}?token=${token()}" alt="">`;
+                        }
+                    });
+                    previewHtml += `</div>`;
+                } else {
+                    previewHtml = `<span style="font-size:40px;">&#128247;</span>`;
+                }
+
                 return `
-                <div class="file-card ${selected.images.has(s.session_id) ? 'selected' : ''}" data-id="${s.session_id}" data-search="${s.session_id}">
-                    <div class="preview thumbnail-grid">
-                        <div class="checkbox ${selected.images.has(s.session_id) ? 'checked' : ''}" onclick="toggleSelect('images', '${s.session_id}')">
-                            ${selected.images.has(s.session_id) ? '&#10003;' : ''}
-                        </div>
-                        ${firstImage ? `<img src="${thumbUrl}" alt="Preview" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                        <span class="fallback-icon" style="display:none; font-size: 48px;">&#128247;</span>` :
-                        `<span style="font-size: 48px;">&#128247;</span>`}
-                        ${s.image_count > 1 ? `<div class="image-count">+${s.image_count - 1}</div>` : ''}
-                    </div>
-                    <div class="info">
-                        <div class="name">${s.session_id.substring(0, 8)}...</div>
-                        <div class="meta">
-                            <span class="badge blue">${s.image_count} images</span>
-                            <span>${formatSize(s.total_size)}</span>
-                            <span>${formatDate(s.created)}</span>
-                        </div>
-                        <div class="actions">
-                            <button class="btn btn-danger btn-sm" onclick="deleteSession('${s.session_id}')">Delete</button>
+                    <div class="file-card" data-id="${s.session_id}">
+                        <div class="preview">${previewHtml}</div>
+                        <div class="info">
+                            <div class="name">Session ${s.session_id.substring(0, 8)}...</div>
+                            <div class="meta">
+                                <span class="badge blue">${s.image_count} images</span>
+                                <span>${formatSize(s.total_size)}</span>
+                            </div>
+                            <div class="actions">
+                                <button class="btn btn-danger btn-sm" onclick="deleteSession('${s.session_id}')">Delete</button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            `}).join('');
+                `;
+            }).join('');
         }
 
         function renderAudio() {
@@ -1213,92 +679,37 @@
             const audioFiles = data.audio || [];
 
             if (audioFiles.length === 0) {
-                list.innerHTML = '<div class="empty-state"><p>No audio files found</p></div>';
+                list.innerHTML = '<div class="empty-state"><div class="icon">&#127925;</div><p>No audio files</p></div>';
                 return;
             }
 
             list.innerHTML = audioFiles.map(a => {
-                // For YouTube audio, show thumbnail if video_id available, otherwise show waveform
-                let thumbnailHtml = '';
-                const isYouTube = a.source && a.source.toLowerCase() === 'youtube';
-                if (isYouTube && a.video_id) {
-                    thumbnailHtml = `
-                        <img class="audio-thumbnail"
-                             src="https://img.youtube.com/vi/${a.video_id}/mqdefault.jpg"
-                             alt="YouTube thumbnail"
-                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                        <div class="audio-waveform" style="display:none;">
-                            <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
-                        </div>`;
+                const isYouTube = a.video_id;
+                let previewHtml = '';
+
+                if (isYouTube) {
+                    previewHtml = `<img src="https://img.youtube.com/vi/${a.video_id}/mqdefault.jpg" alt="YouTube" style="width:100%;height:100%;object-fit:cover;">`;
                 } else {
-                    thumbnailHtml = `
-                        <div class="audio-waveform">
-                            <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
-                        </div>`;
+                    previewHtml = `<div class="audio-waveform"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>`;
                 }
 
                 return `
-                <div class="file-card ${selected.audio.has(a.id) ? 'selected' : ''}" data-id="${a.id}" data-search="${a.name} ${a.title || ''}">
-                    <div class="preview">
-                        <div class="checkbox ${selected.audio.has(a.id) ? 'checked' : ''}" onclick="toggleSelect('audio', '${a.id}')">
-                            ${selected.audio.has(a.id) ? '&#10003;' : ''}
-                        </div>
-                        ${thumbnailHtml}
-                    </div>
-                    <div class="info">
-                        <div class="name">${a.title || a.name}</div>
-                        <div class="meta">
-                            <span class="badge purple">${isYouTube ? 'YouTube' : 'Upload'}</span>
-                            <span>${formatSize(a.size)}</span>
-                            <span>${formatDate(a.created)}</span>
-                        </div>
-                        <div class="actions">
-                            <button class="btn btn-secondary btn-sm" onclick="window.open('/admin/download/audio/${a.id}')">Download</button>
-                            <button class="btn btn-danger btn-sm" onclick="deleteAudio('${a.id}')">Delete</button>
+                    <div class="file-card" data-id="${a.id}">
+                        <div class="preview">${previewHtml}</div>
+                        <div class="info">
+                            <div class="name">${a.title || a.name}</div>
+                            <div class="meta">
+                                <span class="badge purple">${isYouTube ? 'YouTube' : 'Upload'}</span>
+                                <span>${formatSize(a.size)}</span>
+                            </div>
+                            <div class="actions">
+                                <button class="btn btn-secondary btn-sm" onclick="window.open('/admin/download/audio/${a.id}')">Download</button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteAudio('${a.id}')">Delete</button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            `}).join('');
-        }
-
-        function renderVideos() {
-            const list = document.getElementById('videosList');
-            const videos = data.videos || [];
-
-            if (videos.length === 0) {
-                list.innerHTML = '<div class="empty-state"><p>No videos found</p></div>';
-                return;
-            }
-
-            const token = localStorage.getItem('adminToken');
-            list.innerHTML = videos.map(v => `
-                <div class="file-card ${selected.videos.has(v.id) ? 'selected' : ''}" data-id="${v.id}" data-search="${v.name}">
-                    <div class="preview">
-                        <div class="checkbox ${selected.videos.has(v.id) ? 'checked' : ''}" onclick="toggleSelect('videos', '${v.id}')">
-                            ${selected.videos.has(v.id) ? '&#10003;' : ''}
-                        </div>
-                        <video src="/admin/preview/video/${v.id}?token=${token}"
-                               preload="metadata"
-                               muted
-                               loop
-                               onmouseenter="this.play()"
-                               onmouseleave="this.pause(); this.currentTime=0;"></video>
-                        <div class="video-play-icon">&#9658;</div>
-                    </div>
-                    <div class="info">
-                        <div class="name">${v.name}</div>
-                        <div class="meta">
-                            <span class="badge green">MP4</span>
-                            <span>${formatSize(v.size)}</span>
-                            <span>${formatDate(v.created)}</span>
-                        </div>
-                        <div class="actions">
-                            <button class="btn btn-secondary btn-sm" onclick="window.open('/download/${v.id}')">Download</button>
-                            <button class="btn btn-danger btn-sm" onclick="deleteVideo('${v.id}')">Delete</button>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
         function showSection(section) {
@@ -1308,96 +719,30 @@
             event.target.closest('.nav-item').classList.add('active');
         }
 
-        function toggleSelect(type, id) {
-            if (selected[type].has(id)) {
-                selected[type].delete(id);
-            } else {
-                selected[type].add(id);
-            }
-            updateBulkBar();
-
-            // Re-render to update checkboxes
-            if (type === 'images') renderImages();
-            else if (type === 'audio') renderAudio();
-            else if (type === 'videos') renderVideos();
+        function previewImage(sessionId, filename) {
+            const img = document.getElementById('previewImage');
+            img.src = `/admin/preview/image/${sessionId}/${filename}?token=${token()}`;
+            document.getElementById('imagePreviewModal').classList.add('show');
         }
 
-        function selectAll(type) {
-            const items = type === 'images' ? data.images : type === 'audio' ? data.audio : data.videos;
-            const idKey = type === 'images' ? 'session_id' : 'id';
-
-            if (selected[type].size === items.length) {
-                selected[type].clear();
-            } else {
-                items.forEach(i => selected[type].add(i[idKey]));
-            }
-            updateBulkBar();
-
-            if (type === 'images') renderImages();
-            else if (type === 'audio') renderAudio();
-            else if (type === 'videos') renderVideos();
-        }
-
-        function clearSelection() {
-            selected = { images: new Set(), audio: new Set(), videos: new Set() };
-            updateBulkBar();
-            renderImages();
-            renderAudio();
-            renderVideos();
-        }
-
-        function updateBulkBar() {
-            const total = selected.images.size + selected.audio.size + selected.videos.size;
-            document.getElementById('selectedCount').textContent = total;
-            document.getElementById('bulkActionBar').classList.toggle('show', total > 0);
-        }
-
-        async function bulkDelete() {
-            if (!confirm('Delete all selected items? This cannot be undone.')) return;
-
-            const token = localStorage.getItem('adminToken');
-            try {
-                const res = await fetch('/admin/bulk-delete', {
-                    method: 'POST',
-                    headers: { 'Authorization': token, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        sessions: Array.from(selected.images),
-                        audio: Array.from(selected.audio),
-                        videos: Array.from(selected.videos)
-                    })
-                });
-                const d = await res.json();
-                if (d.success) {
-                    toast(`Deleted ${d.deleted.sessions} sessions, ${d.deleted.audio} audio, ${d.deleted.videos} videos`, 'success');
-                    clearSelection();
-                    loadData();
-                }
-            } catch (e) {
-                toast('Delete failed', 'error');
-            }
+        async function deleteProject(id) {
+            if (!confirm('Delete this project? This will delete the video file.')) return;
+            await fetch(`/admin/delete/video/${id}`, { method: 'DELETE', headers: { 'Authorization': token() } });
+            toast('Project deleted', 'success');
+            loadData();
         }
 
         async function deleteSession(id) {
-            if (!confirm('Delete this session?')) return;
-            const token = localStorage.getItem('adminToken');
-            await fetch(`/admin/delete/session/${id}`, { method: 'DELETE', headers: { 'Authorization': token } });
+            if (!confirm('Delete this image session?')) return;
+            await fetch(`/admin/delete/session/${id}`, { method: 'DELETE', headers: { 'Authorization': token() } });
             toast('Session deleted', 'success');
             loadData();
         }
 
         async function deleteAudio(id) {
-            if (!confirm('Delete this audio?')) return;
-            const token = localStorage.getItem('adminToken');
-            await fetch(`/admin/delete/audio/${id}`, { method: 'DELETE', headers: { 'Authorization': token } });
+            if (!confirm('Delete this audio file?')) return;
+            await fetch(`/admin/delete/audio/${id}`, { method: 'DELETE', headers: { 'Authorization': token() } });
             toast('Audio deleted', 'success');
-            loadData();
-        }
-
-        async function deleteVideo(id) {
-            if (!confirm('Delete this video?')) return;
-            const token = localStorage.getItem('adminToken');
-            await fetch(`/admin/delete/video/${id}`, { method: 'DELETE', headers: { 'Authorization': token } });
-            toast('Video deleted', 'success');
             loadData();
         }
 
@@ -1405,15 +750,14 @@
             const hours = parseInt(document.getElementById('cleanupHours').value);
             if (!confirm(`Delete all files older than ${hours} hour(s)?`)) return;
 
-            const token = localStorage.getItem('adminToken');
             try {
                 const res = await fetch('/admin/cleanup', {
                     method: 'POST',
-                    headers: { 'Authorization': token, 'Content-Type': 'application/json' },
+                    headers: { 'Authorization': token(), 'Content-Type': 'application/json' },
                     body: JSON.stringify({ hours })
                 });
                 const d = await res.json();
-                document.getElementById('cleanupResult').textContent = `Deleted ${d.deleted_count} files older than ${hours} hour(s).`;
+                document.getElementById('cleanupResult').textContent = `Deleted ${d.deleted_count} files.`;
                 document.getElementById('cleanupModal').classList.add('show');
                 loadData();
             } catch (e) {
@@ -1426,37 +770,9 @@
         }
 
         async function exportData() {
-            const token = localStorage.getItem('adminToken');
-            window.open(`/admin/export?token=${token}`, '_blank');
-            toast('Export started', 'info');
+            window.open(`/admin/export?token=${token()}`, '_blank');
         }
 
-        function filterItems(type) {
-            const search = document.getElementById('search' + type.charAt(0).toUpperCase() + type.slice(1)).value.toLowerCase();
-            document.querySelectorAll(`#${type}List .file-card`).forEach(card => {
-                const searchText = card.getAttribute('data-search').toLowerCase();
-                card.style.display = searchText.includes(search) ? '' : 'none';
-            });
-        }
-
-        function sortItems(type) {
-            // Re-sort and re-render
-            const sortValue = document.getElementById('sort' + type.charAt(0).toUpperCase() + type.slice(1)).value;
-            const [field, order] = sortValue.split('-');
-
-            const items = type === 'images' ? data.images : type === 'audio' ? data.audio : data.videos;
-            items.sort((a, b) => {
-                let valA = field === 'date' ? a.created : (a.total_size || a.size);
-                let valB = field === 'date' ? b.created : (b.total_size || b.size);
-                return order === 'asc' ? valA - valB : valB - valA;
-            });
-
-            if (type === 'images') renderImages();
-            else if (type === 'audio') renderAudio();
-            else if (type === 'videos') renderVideos();
-        }
-
-        // Utilities
         function formatSize(bytes) {
             if (!bytes) return '0 B';
             const k = 1024;
@@ -1465,17 +781,13 @@
             return (bytes / Math.pow(k, i)).toFixed(1) + ' ' + sizes[i];
         }
 
-        function formatDate(ts) {
-            return new Date(ts * 1000).toLocaleString();
-        }
-
         function toast(message, type = 'info') {
             const container = document.getElementById('toastContainer');
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
-            toast.innerHTML = message;
-            container.appendChild(toast);
-            setTimeout(() => toast.remove(), 4000);
+            const t = document.createElement('div');
+            t.className = `toast ${type}`;
+            t.innerHTML = message;
+            container.appendChild(t);
+            setTimeout(() => t.remove(), 4000);
         }
     </script>
 </body>

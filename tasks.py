@@ -226,6 +226,24 @@ def generate_video_job(job_id, session_id, audio_id, duration, transition, resol
         file_size = os.path.getsize(output_path)
         print(f"[{job_id}] [OK] Video generation complete! Size: {file_size} bytes")
 
+        # Save project metadata for admin panel
+        try:
+            meta_path = os.path.join(OUTPUT_FOLDER, f"{job_id}_meta.json")
+            with open(meta_path, 'w') as f:
+                json.dump({
+                    'session_id': session_id,
+                    'audio_id': audio_id,
+                    'duration_per_image': duration,
+                    'transition': transition,
+                    'resolution': resolution,
+                    'image_count': total_images,
+                    'created': datetime.now().isoformat(),
+                    'file_size': file_size
+                }, f)
+            print(f"[{job_id}] Project metadata saved")
+        except Exception as meta_error:
+            print(f"[{job_id}] Warning: Could not save metadata: {meta_error}")
+
         update_progress(job_id, 'completed', 100, 'Video ready for download!')
 
         return {

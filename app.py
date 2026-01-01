@@ -979,6 +979,23 @@ def generate_video_sync(job_id, session_id, audio_id, duration_per_image, transi
 
         update_progress(job_id, 'completed', 100, 'Video generation complete!')
 
+        # Save project metadata for admin panel
+        try:
+            meta_path = os.path.join(app.config['OUTPUT_FOLDER'], f"{output_id}_meta.json")
+            with open(meta_path, 'w') as f:
+                json.dump({
+                    'session_id': session_id,
+                    'audio_id': audio_id,
+                    'duration_per_image': duration_per_image,
+                    'transition': transition,
+                    'resolution': resolution,
+                    'image_count': len(image_files),
+                    'created': datetime.now().isoformat(),
+                    'file_size': os.path.getsize(output_path) if os.path.exists(output_path) else 0
+                }, f)
+        except Exception as meta_error:
+            app.logger.warning(f"Could not save project metadata: {meta_error}")
+
         # Clean up progress after 1 minute
         import threading
         def cleanup_progress():
@@ -1405,6 +1422,104 @@ def admin_data():
         'audio': audio_files,
         'videos': videos
     })
+
+
+@app.route('/admin/projects')
+def admin_projects():
+    """Get all projects (videos with their source images and audio)"""
+    token = request.headers.get('Authorization') or request.args.get('token')
+    if not verify_admin_token(token):
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    projects = []
+
+    # Scan output folder for videos with metadata
+    if os.path.exists(app.config['OUTPUT_FOLDER']):
+        for video_file in os.listdir(app.config['OUTPUT_FOLDER']):
+            if not video_file.endswith('.mp4'):
+                continue
+
+            video_id = video_file.rsplit('.', 1)[0]
+            video_path = os.path.join(app.config['OUTPUT_FOLDER'], video_file)
+            meta_path = os.path.join(app.config['OUTPUT_FOLDER'], f"{video_id}_meta.json")
+
+            project = {
+                'id': video_id,
+                'video': {
+                    'id': video_id,
+                    'name': video_file,
+                    'size': os.path.getsize(video_path),
+                    'created': os.path.getctime(video_path)
+                },
+                'images': [],
+                'audio': None,
+                'settings': {}
+            }
+
+            # Load metadata if available
+            if os.path.exists(meta_path):
+                try:
+                    with open(meta_path, 'r') as f:
+                        meta = json.load(f)
+                        project['settings'] = {
+                            'duration': meta.get('duration_per_image'),
+                            'transition': meta.get('transition'),
+                            'resolution': meta.get('resolution'),
+                            'image_count': meta.get('image_count')
+                        }
+                        project['created'] = meta.get('created')
+
+                        # Get images from session
+                        session_id = meta.get('session_id')
+                        if session_id:
+                            session_path = os.path.join(app.config['UPLOAD_FOLDER'], session_id)
+                            if os.path.exists(session_path):
+                                images = []
+                                for img_file in sorted(os.listdir(session_path)):
+                                    if img_file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')):
+                                        images.append({
+                                            'name': img_file,
+                                            'session_id': session_id
+                                        })
+                                project['images'] = images
+                                project['session_id'] = session_id
+
+                        # Get audio info
+                        audio_id = meta.get('audio_id')
+                        if audio_id:
+                            audio_files = list(Path(app.config['AUDIO_FOLDER']).glob(f"{audio_id}.*"))
+                            audio_files = [f for f in audio_files if not str(f).endswith('.json')]
+                            if audio_files:
+                                audio_path = str(audio_files[0])
+                                audio_meta_path = os.path.join(app.config['AUDIO_FOLDER'], f"{audio_id}_trim.json")
+                                audio_info = {
+                                    'id': audio_id,
+                                    'name': os.path.basename(audio_path),
+                                    'size': os.path.getsize(audio_path)
+                                }
+                                # Load YouTube info if available
+                                if os.path.exists(audio_meta_path):
+                                    try:
+                                        with open(audio_meta_path, 'r') as af:
+                                            audio_meta = json.load(af)
+                                            audio_info['video_id'] = audio_meta.get('video_id')
+                                            audio_info['title'] = audio_meta.get('title')
+                                    except:
+                                        pass
+                                project['audio'] = audio_info
+                except Exception as e:
+                    app.logger.warning(f"Could not load metadata for {video_id}: {e}")
+            else:
+                # No metadata - use video creation time
+                project['created'] = datetime.fromtimestamp(os.path.getctime(video_path)).isoformat()
+
+            projects.append(project)
+
+    # Sort by creation time (newest first)
+    projects.sort(key=lambda p: p.get('created', ''), reverse=True)
+
+    return jsonify({'projects': projects})
+
 
 @app.route('/admin/preview/image/<session_id>/<filename>')
 def admin_preview_image(session_id, filename):
