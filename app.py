@@ -1090,13 +1090,13 @@ def static_files(filename):
     """Serve static files"""
     return send_from_directory('static', filename)
 
-# Clean old files periodically
-@app.before_request
-def before_request():
-    # Clean old files occasionally (1 in 100 requests)
-    import random
-    if random.randint(1, 100) == 1:
-        clean_old_files()
+# DISABLED: Automatic cleanup was wiping user data
+# Cleanup is now manual-only via admin panel
+# @app.before_request
+# def before_request():
+#     import random
+#     if random.randint(1, 100) == 1:
+#         clean_old_files()
 
 # ==================== ADMIN ROUTES ====================
 import hashlib
@@ -1591,12 +1591,18 @@ def admin_delete_video(video_id):
 
 @app.route('/admin/cleanup', methods=['POST'])
 def admin_cleanup():
-    """Clean up old files (older than 1 hour)"""
+    """Clean up old files with configurable age threshold"""
     token = request.headers.get('Authorization')
     if not verify_admin_token(token):
         return jsonify({'error': 'Unauthorized'}), 401
 
+    # Get threshold from request (default 1 hour = 3600 seconds)
+    data = request.get_json() or {}
+    hours = data.get('hours', 1)
+    threshold_seconds = hours * 3600
+
     deleted_count = 0
+    deleted_items = []
     current_time = time.time()
 
     # Clean uploads, audio, and output folders
@@ -1605,17 +1611,225 @@ def admin_cleanup():
             for item in os.listdir(folder):
                 item_path = os.path.join(folder, item)
                 try:
-                    if os.path.getmtime(item_path) < current_time - 3600:  # 1 hour old
+                    file_age = current_time - os.path.getmtime(item_path)
+                    if file_age > threshold_seconds:
+                        item_type = 'folder' if os.path.isdir(item_path) else 'file'
                         if os.path.isfile(item_path):
                             os.remove(item_path)
                             deleted_count += 1
                         elif os.path.isdir(item_path):
                             shutil.rmtree(item_path)
                             deleted_count += 1
-                except:
-                    pass
+                        deleted_items.append({
+                            'name': item,
+                            'type': item_type,
+                            'age_hours': round(file_age / 3600, 1)
+                        })
+                except Exception as e:
+                    app.logger.warning(f"Failed to delete {item_path}: {e}")
 
-    return jsonify({'success': True, 'deleted_count': deleted_count})
+    return jsonify({
+        'success': True,
+        'deleted_count': deleted_count,
+        'deleted_items': deleted_items[:50],  # Limit response size
+        'threshold_hours': hours
+    })
+
+
+@app.route('/admin/analytics')
+def admin_analytics():
+    """Get analytics data for admin dashboard"""
+    token = request.headers.get('Authorization')
+    if not verify_admin_token(token):
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    current_time = time.time()
+    analytics = {
+        'files_by_age': {'1h': 0, '6h': 0, '24h': 0, '7d': 0, 'older': 0},
+        'storage_by_type': {'images': 0, 'audio': 0, 'videos': 0},
+        'recent_activity': [],
+        'hourly_stats': []
+    }
+
+    all_files = []
+
+    # Analyze uploads
+    if os.path.exists(app.config['UPLOAD_FOLDER']):
+        for session_id in os.listdir(app.config['UPLOAD_FOLDER']):
+            session_path = os.path.join(app.config['UPLOAD_FOLDER'], session_id)
+            if os.path.isdir(session_path):
+                created = os.path.getctime(session_path)
+                size = sum(os.path.getsize(os.path.join(session_path, f))
+                          for f in os.listdir(session_path) if os.path.isfile(os.path.join(session_path, f)))
+                analytics['storage_by_type']['images'] += size
+                all_files.append({'type': 'upload', 'id': session_id, 'created': created, 'size': size})
+                _categorize_by_age(analytics['files_by_age'], current_time - created)
+
+    # Analyze audio
+    if os.path.exists(app.config['AUDIO_FOLDER']):
+        for audio_file in os.listdir(app.config['AUDIO_FOLDER']):
+            if audio_file.endswith('_trim.json'):
+                continue
+            audio_path = os.path.join(app.config['AUDIO_FOLDER'], audio_file)
+            if os.path.isfile(audio_path):
+                created = os.path.getctime(audio_path)
+                size = os.path.getsize(audio_path)
+                analytics['storage_by_type']['audio'] += size
+                all_files.append({'type': 'audio', 'id': audio_file, 'created': created, 'size': size})
+                _categorize_by_age(analytics['files_by_age'], current_time - created)
+
+    # Analyze videos
+    if os.path.exists(app.config['OUTPUT_FOLDER']):
+        for video_file in os.listdir(app.config['OUTPUT_FOLDER']):
+            if video_file.endswith('.mp4'):
+                video_path = os.path.join(app.config['OUTPUT_FOLDER'], video_file)
+                if os.path.isfile(video_path):
+                    created = os.path.getctime(video_path)
+                    size = os.path.getsize(video_path)
+                    analytics['storage_by_type']['videos'] += size
+                    all_files.append({'type': 'video', 'id': video_file, 'created': created, 'size': size})
+                    _categorize_by_age(analytics['files_by_age'], current_time - created)
+
+    # Sort by creation time and get recent activity
+    all_files.sort(key=lambda x: x['created'], reverse=True)
+    analytics['recent_activity'] = all_files[:20]
+
+    # Calculate hourly stats for last 24 hours
+    for hour in range(24):
+        hour_start = current_time - (hour + 1) * 3600
+        hour_end = current_time - hour * 3600
+        count = sum(1 for f in all_files if hour_start <= f['created'] < hour_end)
+        analytics['hourly_stats'].append({'hour': hour, 'count': count})
+
+    return jsonify(analytics)
+
+
+def _categorize_by_age(age_dict, age_seconds):
+    """Helper to categorize files by age"""
+    if age_seconds < 3600:
+        age_dict['1h'] += 1
+    elif age_seconds < 6 * 3600:
+        age_dict['6h'] += 1
+    elif age_seconds < 24 * 3600:
+        age_dict['24h'] += 1
+    elif age_seconds < 7 * 24 * 3600:
+        age_dict['7d'] += 1
+    else:
+        age_dict['older'] += 1
+
+
+@app.route('/admin/export')
+def admin_export():
+    """Export all data as JSON"""
+    token = request.headers.get('Authorization')
+    if not verify_admin_token(token):
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    export_data = {
+        'exported_at': datetime.now().isoformat(),
+        'sessions': [],
+        'audio_files': [],
+        'videos': []
+    }
+
+    # Export sessions
+    if os.path.exists(app.config['UPLOAD_FOLDER']):
+        for session_id in os.listdir(app.config['UPLOAD_FOLDER']):
+            session_path = os.path.join(app.config['UPLOAD_FOLDER'], session_id)
+            if os.path.isdir(session_path):
+                images = os.listdir(session_path)
+                export_data['sessions'].append({
+                    'session_id': session_id,
+                    'created': datetime.fromtimestamp(os.path.getctime(session_path)).isoformat(),
+                    'image_count': len(images),
+                    'images': images
+                })
+
+    # Export audio
+    if os.path.exists(app.config['AUDIO_FOLDER']):
+        for audio_file in os.listdir(app.config['AUDIO_FOLDER']):
+            if not audio_file.endswith('_trim.json'):
+                audio_path = os.path.join(app.config['AUDIO_FOLDER'], audio_file)
+                if os.path.isfile(audio_path):
+                    export_data['audio_files'].append({
+                        'filename': audio_file,
+                        'created': datetime.fromtimestamp(os.path.getctime(audio_path)).isoformat(),
+                        'size_bytes': os.path.getsize(audio_path)
+                    })
+
+    # Export videos
+    if os.path.exists(app.config['OUTPUT_FOLDER']):
+        for video_file in os.listdir(app.config['OUTPUT_FOLDER']):
+            if video_file.endswith('.mp4'):
+                video_path = os.path.join(app.config['OUTPUT_FOLDER'], video_file)
+                if os.path.isfile(video_path):
+                    export_data['videos'].append({
+                        'filename': video_file,
+                        'created': datetime.fromtimestamp(os.path.getctime(video_path)).isoformat(),
+                        'size_bytes': os.path.getsize(video_path)
+                    })
+
+    response = jsonify(export_data)
+    response.headers['Content-Disposition'] = f'attachment; filename=aiezzy_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
+    return response
+
+
+@app.route('/admin/bulk-delete', methods=['POST'])
+def admin_bulk_delete():
+    """Delete multiple items at once"""
+    token = request.headers.get('Authorization')
+    if not verify_admin_token(token):
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+
+    deleted = {'sessions': 0, 'audio': 0, 'videos': 0}
+    errors = []
+
+    # Delete sessions
+    for session_id in data.get('sessions', []):
+        try:
+            if is_valid_uuid(session_id):
+                session_path = safe_join_path(app.config['UPLOAD_FOLDER'], session_id)
+                if os.path.isdir(session_path):
+                    shutil.rmtree(session_path)
+                    deleted['sessions'] += 1
+        except Exception as e:
+            errors.append(f"Session {session_id}: {str(e)}")
+
+    # Delete audio files
+    for audio_id in data.get('audio', []):
+        try:
+            for ext in ['.mp4', '.webm', '.m4a', '.mp3', '.opus', '.ogg']:
+                audio_path = os.path.join(app.config['AUDIO_FOLDER'], f"{audio_id}{ext}")
+                if os.path.isfile(audio_path):
+                    os.remove(audio_path)
+                    deleted['audio'] += 1
+                    break
+            # Also delete trim file
+            trim_path = os.path.join(app.config['AUDIO_FOLDER'], f"{audio_id}_trim.json")
+            if os.path.isfile(trim_path):
+                os.remove(trim_path)
+        except Exception as e:
+            errors.append(f"Audio {audio_id}: {str(e)}")
+
+    # Delete videos
+    for video_id in data.get('videos', []):
+        try:
+            video_path = os.path.join(app.config['OUTPUT_FOLDER'], f"{video_id}.mp4")
+            if os.path.isfile(video_path):
+                os.remove(video_path)
+                deleted['videos'] += 1
+        except Exception as e:
+            errors.append(f"Video {video_id}: {str(e)}")
+
+    return jsonify({
+        'success': True,
+        'deleted': deleted,
+        'errors': errors if errors else None
+    })
 
 if __name__ == '__main__':
     # Get port from environment variable for Railway/production

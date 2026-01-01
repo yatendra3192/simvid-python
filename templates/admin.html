@@ -3,8 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - Aiezzy Simvid</title>
+    <title>Admin Dashboard - Aiezzy Video</title>
+    <link rel="icon" type="image/png" href="https://aiezzy.com/favicon.png">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --border: #475569;
+            --shadow: rgba(0, 0, 0, 0.3);
+            --gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -12,1150 +31,1338 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
             min-height: 100vh;
-            padding: 20px;
+            line-height: 1.6;
         }
 
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-        }
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+        ::-webkit-scrollbar-thumb { background: var(--bg-tertiary); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--border); }
 
-        .header {
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            flex-direction: column;
+            gap: 10px;
         }
 
-        .header-content {
+        .toast {
+            padding: 16px 24px;
+            border-radius: 12px;
+            color: white;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: slideIn 0.3s ease;
+            box-shadow: 0 10px 40px var(--shadow);
+        }
+
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        .toast.warning { background: var(--warning); }
+        .toast.info { background: var(--accent); }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Login Page */
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--gradient);
+        }
+
+        .login-card {
+            background: var(--bg-secondary);
+            padding: 48px;
+            border-radius: 24px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.5);
+        }
+
+        .login-card h1 {
+            text-align: center;
+            margin-bottom: 8px;
+            font-size: 28px;
+        }
+
+        .login-card p {
+            text-align: center;
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 14px 18px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+        }
+
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--gradient);
+            color: white;
+            width: 100%;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 13px;
+        }
+
+        /* Dashboard Layout */
+        .dashboard {
+            display: none;
+        }
+
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 280px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+        }
+
+        .sidebar-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+
+        .sidebar-logo img {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+        }
+
+        .sidebar-logo span {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .nav-menu {
             flex: 1;
         }
 
-        .logout-btn {
-            padding: 10px 20px;
-            background: #ff4444;
-            color: white;
-            border: none;
-            border-radius: 6px;
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            border-radius: 12px;
+            color: var(--text-secondary);
             cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
+            transition: all 0.2s;
+            margin-bottom: 4px;
         }
 
-        .logout-btn:hover {
-            background: #cc0000;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(255, 68, 68, 0.3);
+        .nav-item:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
         }
 
-        h1 {
-            color: #333;
-            margin-bottom: 10px;
+        .nav-item.active {
+            background: var(--accent);
+            color: white;
         }
 
-        .stats {
+        .nav-item svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .main-content {
+            margin-left: 280px;
+            padding: 32px;
+            min-height: 100vh;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
             gap: 20px;
-            margin-bottom: 20px;
+            margin-bottom: 32px;
         }
 
         .stat-card {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            text-align: center;
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid var(--border);
+            transition: all 0.3s;
         }
 
-        .stat-number {
-            font-size: 36px;
-            font-weight: bold;
-            color: #667eea;
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px var(--shadow);
         }
 
-        .stat-label {
-            color: #666;
-            margin-top: 5px;
-        }
-
-        .section {
-            background: white;
-            padding: 20px;
+        .stat-card .icon {
+            width: 48px;
+            height: 48px;
             border-radius: 12px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            font-size: 24px;
         }
 
-        h2 {
-            color: #333;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #f0f0f0;
+        .stat-card .icon.blue { background: rgba(59, 130, 246, 0.2); }
+        .stat-card .icon.green { background: rgba(34, 197, 94, 0.2); }
+        .stat-card .icon.purple { background: rgba(139, 92, 246, 0.2); }
+        .stat-card .icon.orange { background: rgba(245, 158, 11, 0.2); }
+
+        .stat-card .value {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .stat-card .label {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        /* Charts */
+        .chart-container {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid var(--border);
+            margin-bottom: 24px;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .chart-header h3 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        /* Activity Timeline */
+        .activity-timeline {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid var(--border);
+        }
+
+        .timeline-item {
+            display: flex;
+            gap: 16px;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .timeline-item:last-child {
+            border-bottom: none;
+        }
+
+        .timeline-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .timeline-icon.upload { background: rgba(59, 130, 246, 0.2); color: var(--accent); }
+        .timeline-icon.audio { background: rgba(139, 92, 246, 0.2); color: #8b5cf6; }
+        .timeline-icon.video { background: rgba(34, 197, 94, 0.2); color: var(--success); }
+
+        .timeline-content {
+            flex: 1;
+        }
+
+        .timeline-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .timeline-meta {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        /* File Cards */
+        .content-section {
+            display: none;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 12px 18px 12px 48px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 15px;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .search-box svg {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+        }
+
+        .select-box {
+            padding: 12px 18px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 15px;
+            cursor: pointer;
         }
 
         .file-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 15px;
-            margin-top: 15px;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
         }
 
         .file-card {
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 15px;
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            border: 2px solid var(--border);
+            overflow: hidden;
             transition: all 0.3s;
-            position: relative;
         }
 
         .file-card:hover {
-            border-color: #667eea;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+            border-color: var(--accent);
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px var(--shadow);
         }
 
-        .file-type {
+        .file-card.selected {
+            border-color: var(--accent);
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .file-card .preview {
+            height: 180px;
+            background: var(--bg-tertiary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .file-card .preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .file-card .preview video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .file-card .checkbox {
             position: absolute;
-            top: 10px;
-            right: 10px;
-            background: #667eea;
-            color: white;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 12px;
+            top: 12px;
+            left: 12px;
+            width: 24px;
+            height: 24px;
+            border: 2px solid white;
+            border-radius: 6px;
+            background: rgba(0,0,0,0.5);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        .file-name {
+        .file-card .checkbox.checked {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .file-card .info {
+            padding: 16px;
+        }
+
+        .file-card .name {
             font-weight: 600;
-            color: #333;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
             word-break: break-all;
             font-size: 14px;
         }
 
-        .file-info {
-            font-size: 12px;
-            color: #666;
-            margin: 3px 0;
-        }
-
-        .file-actions {
-            margin-top: 10px;
+        .file-card .meta {
             display: flex;
-            gap: 10px;
+            flex-wrap: wrap;
+            gap: 12px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            margin-bottom: 12px;
         }
 
-        .btn {
-            padding: 6px 12px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
+        .file-card .actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .badge {
+            padding: 4px 10px;
+            border-radius: 6px;
             font-size: 12px;
-            transition: all 0.3s;
-            flex: 1;
+            font-weight: 600;
+        }
+
+        .badge.blue { background: rgba(59, 130, 246, 0.2); color: var(--accent); }
+        .badge.green { background: rgba(34, 197, 94, 0.2); color: var(--success); }
+        .badge.purple { background: rgba(139, 92, 246, 0.2); color: #8b5cf6; }
+
+        /* Cleanup Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-secondary);
+            border-radius: 20px;
+            padding: 32px;
+            width: 100%;
+            max-width: 480px;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal h2 {
+            margin-bottom: 8px;
+        }
+
+        .modal p {
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        /* Bulk Action Bar */
+        .bulk-action-bar {
+            position: fixed;
+            bottom: 32px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 16px 24px;
+            display: none;
+            align-items: center;
+            gap: 16px;
+            box-shadow: 0 20px 60px var(--shadow);
+            z-index: 100;
+        }
+
+        .bulk-action-bar.show {
+            display: flex;
+        }
+
+        .bulk-count {
+            font-weight: 600;
+        }
+
+        /* Empty State */
+        .empty-state {
             text-align: center;
-            text-decoration: none;
-            color: white;
+            padding: 60px 20px;
+            color: var(--text-secondary);
         }
 
-        .btn-view {
-            background: #4CAF50;
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
         }
 
-        .btn-view:hover {
-            background: #45a049;
-        }
-
-        .btn-download {
-            background: #2196F3;
-        }
-
-        .btn-download:hover {
-            background: #1976D2;
-        }
-
-        .btn-delete {
-            background: #f44336;
-        }
-
-        .btn-delete:hover {
-            background: #da190b;
-        }
-
-        .btn-refresh {
-            background: #667eea;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            margin-left: 10px;
-        }
-
-        .btn-refresh:hover {
-            background: #5a67d8;
-        }
-
-        .image-preview {
-            width: 100%;
-            height: 150px;
-            object-fit: cover;
-            border-radius: 4px;
-            margin-bottom: 10px;
-        }
-
-        .audio-player {
-            width: 100%;
-            margin-bottom: 10px;
-        }
-
-        .video-preview {
-            width: 100%;
-            border-radius: 4px;
-            margin-bottom: 10px;
-        }
-
-        .session-folder {
-            background: #f8f9fa;
-            padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 6px;
-            border-left: 4px solid #667eea;
-        }
-
-        .session-id {
-            font-weight: bold;
-            color: #667eea;
-            margin-bottom: 5px;
-        }
-
-        .login-form {
-            max-width: 400px;
-            margin: 100px auto;
-            background: white;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-
-        .login-form input {
-            width: 100%;
-            padding: 10px;
-            margin: 10px 0;
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
-            font-size: 16px;
-        }
-
-        .login-form button {
-            width: 100%;
-            padding: 12px;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-
-        .login-form button:hover {
-            background: #5a67d8;
-        }
-
-        .error-msg {
-            color: #f44336;
-            margin: 10px 0;
-            text-align: center;
-        }
-
-        .success-msg {
-            color: #4CAF50;
-            margin: 10px 0;
-            text-align: center;
-        }
-
+        /* Loading */
         .loading {
             text-align: center;
             padding: 40px;
-            color: #666;
         }
 
-        .empty-state {
-            text-align: center;
-            padding: 40px;
-            color: #999;
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
         }
 
-        .tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            border-bottom: 2px solid #e0e0e0;
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
-        .tab {
-            padding: 10px 20px;
-            background: none;
-            border: none;
-            color: #666;
-            cursor: pointer;
-            font-size: 16px;
-            border-bottom: 3px solid transparent;
-            transition: all 0.3s;
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            .main-content {
+                margin-left: 0;
+            }
         }
 
-        .tab.active {
-            color: #667eea;
-            border-bottom-color: #667eea;
-        }
-
-        .tab:hover {
-            color: #667eea;
-        }
-
-        .search-box {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
-        .search-input {
-            flex: 1;
-            padding: 10px;
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
-            font-size: 14px;
-        }
-
-        @media (max-width: 768px) {
+        @media (max-width: 640px) {
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+            }
             .file-grid {
                 grid-template-columns: 1fr;
             }
-
-            .stats {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        /* Pagination Controls */
-        .pagination-controls {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 10px;
-            margin-top: 20px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 8px;
-        }
-
-        .pagination-controls button {
-            padding: 8px 16px;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-
-        .pagination-controls button:hover:not(:disabled) {
-            background: #5a67d8;
-            transform: translateY(-2px);
-        }
-
-        .pagination-controls button:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            opacity: 0.6;
-        }
-
-        .pagination-info {
-            font-weight: 600;
-            color: #333;
-            min-width: 150px;
-            text-align: center;
-        }
-
-        .page-numbers {
-            display: flex;
-            gap: 5px;
-        }
-
-        .page-number {
-            padding: 8px 12px;
-            background: white;
-            border: 2px solid #667eea;
-            color: #667eea;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-
-        .page-number:hover {
-            background: #667eea;
-            color: white;
-        }
-
-        .page-number.active {
-            background: #667eea;
-            color: white;
-        }
-
-        .page-number.ellipsis {
-            border: none;
-            cursor: default;
-            color: #999;
-        }
-
-        .page-number.ellipsis:hover {
-            background: white;
-            color: #999;
-        }
-
-        /* Sort Controls */
-        .sort-controls {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .sort-controls label {
-            font-weight: 600;
-            color: #333;
-        }
-
-        .sort-controls select {
-            padding: 8px 12px;
-            border: 2px solid #667eea;
-            border-radius: 6px;
-            background: white;
-            color: #333;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .sort-controls select:hover {
-            border-color: #5a67d8;
-            background: #f8f9fa;
-        }
-
-        .sort-controls select:focus {
-            outline: none;
-            border-color: #5a67d8;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Login Form (shown when not authenticated) -->
-        <div id="loginForm" class="login-form" style="display: none;">
-            <h2 style="text-align: center; margin-bottom: 20px;">Admin Login</h2>
-            <input type="password" id="adminPassword" placeholder="Enter admin password" onkeypress="if(event.key==='Enter') login()">
-            <button onclick="login()">Login</button>
-            <div id="loginError" class="error-msg"></div>
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Login Page -->
+    <div id="loginPage" class="login-container">
+        <div class="login-card">
+            <h1>Admin Dashboard</h1>
+            <p>Sign in to manage your Aiezzy Video instance</p>
+            <div class="input-group">
+                <label>Password</label>
+                <input type="password" id="passwordInput" placeholder="Enter admin password" onkeypress="if(event.key==='Enter') login()">
+            </div>
+            <button class="btn btn-primary" onclick="login()">Sign In</button>
         </div>
+    </div>
 
-        <!-- Admin Dashboard (shown when authenticated) -->
-        <div id="adminDashboard" style="display: none;">
-            <div class="header">
-                <div class="header-content">
-                    <h1>🔧 Admin Dashboard - Aiezzy Simvid</h1>
-                    <p style="color: #666;">Monitor and manage user uploads, audio files, and generated videos</p>
-                </div>
-                <button class="logout-btn" onclick="logout()">🚪 Logout</button>
+    <!-- Dashboard -->
+    <div id="dashboard" class="dashboard">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <img src="https://aiezzy.com/logo.png" alt="Aiezzy">
+                <span>Aiezzy Admin</span>
             </div>
+            <nav class="nav-menu">
+                <div class="nav-item active" onclick="showSection('overview')">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+                    Overview
+                </div>
+                <div class="nav-item" onclick="showSection('images')">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    Images
+                </div>
+                <div class="nav-item" onclick="showSection('audio')">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg>
+                    Audio Files
+                </div>
+                <div class="nav-item" onclick="showSection('videos')">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                    Videos
+                </div>
+                <div class="nav-item" onclick="showSection('settings')">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    Settings
+                </div>
+            </nav>
+            <button class="btn btn-secondary" onclick="logout()" style="width: 100%;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                Logout
+            </button>
+        </aside>
 
-            <!-- Statistics -->
-            <div class="stats">
-                <div class="stat-card">
-                    <div class="stat-number" id="statImages">0</div>
-                    <div class="stat-label">Image Sessions</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="statAudio">0</div>
-                    <div class="stat-label">Audio Files</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="statVideos">0</div>
-                    <div class="stat-label">Videos Generated</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="statStorage">0 MB</div>
-                    <div class="stat-label">Storage Used</div>
-                </div>
-            </div>
-
-            <!-- Tabs -->
-            <div class="section">
-                <div class="tabs">
-                    <button class="tab active" onclick="showTab('images')">📸 Image Uploads</button>
-                    <button class="tab" onclick="showTab('audio')">🎵 Audio Files</button>
-                    <button class="tab" onclick="showTab('videos')">🎬 Generated Videos</button>
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Overview Section -->
+            <section id="sectionOverview" class="content-section active">
+                <div class="header">
+                    <h1>Overview</h1>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" onclick="loadData()">Refresh</button>
+                        <button class="btn btn-primary" onclick="exportData()">Export Data</button>
+                    </div>
                 </div>
 
-                <div class="search-box">
-                    <input type="text" class="search-input" id="searchInput" placeholder="Search files..." onkeyup="searchFiles()">
-                    <button class="btn-refresh" onclick="loadDashboardData()">🔄 Refresh</button>
-                    <button class="btn-refresh" onclick="cleanupOldFiles()">🧹 Clean Old Files</button>
+                <!-- Stats -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="icon blue">&#128247;</div>
+                        <div class="value" id="statSessions">0</div>
+                        <div class="label">Image Sessions</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="icon purple">&#127925;</div>
+                        <div class="value" id="statAudio">0</div>
+                        <div class="label">Audio Files</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="icon green">&#127909;</div>
+                        <div class="value" id="statVideos">0</div>
+                        <div class="label">Videos Generated</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="icon orange">&#128190;</div>
+                        <div class="value" id="statStorage">0 MB</div>
+                        <div class="label">Total Storage</div>
+                    </div>
                 </div>
 
-                <!-- Images Tab -->
-                <div id="imagesTab" class="tab-content">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h2 style="margin: 0;">Uploaded Image Sessions</h2>
-                        <div class="sort-controls">
-                            <label>Sort by:</label>
-                            <select id="imagesSort" onchange="sortFiles('images', this.value)">
-                                <option value="date-desc">Date (Newest First)</option>
-                                <option value="date-asc">Date (Oldest First)</option>
-                                <option value="size-desc">Size (Largest First)</option>
-                                <option value="size-asc">Size (Smallest First)</option>
-                                <option value="count-desc">Image Count (Most)</option>
-                                <option value="count-asc">Image Count (Least)</option>
-                            </select>
+                <!-- Charts Row -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <h3>Storage Distribution</h3>
+                        </div>
+                        <canvas id="storageChart" height="200"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <h3>Files by Age</h3>
+                        </div>
+                        <canvas id="ageChart" height="200"></canvas>
+                    </div>
+                </div>
+
+                <!-- Activity Timeline -->
+                <div class="activity-timeline">
+                    <div class="chart-header">
+                        <h3>Recent Activity</h3>
+                    </div>
+                    <div id="activityList">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            <p>Loading activity...</p>
                         </div>
                     </div>
-                    <div id="imagesList" class="file-grid">
-                        <div class="loading">Loading images...</div>
+                </div>
+            </section>
+
+            <!-- Images Section -->
+            <section id="sectionImages" class="content-section">
+                <div class="header">
+                    <h1>Image Sessions</h1>
+                </div>
+                <div class="toolbar">
+                    <div class="search-box">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                        <input type="text" id="searchImages" placeholder="Search sessions..." oninput="filterItems('images')">
                     </div>
-                    <div id="imagesPagination" class="pagination-controls"></div>
+                    <select class="select-box" id="sortImages" onchange="sortItems('images')">
+                        <option value="date-desc">Newest First</option>
+                        <option value="date-asc">Oldest First</option>
+                        <option value="size-desc">Largest First</option>
+                        <option value="size-asc">Smallest First</option>
+                    </select>
+                    <button class="btn btn-secondary" onclick="selectAll('images')">Select All</button>
+                </div>
+                <div id="imagesList" class="file-grid">
+                    <div class="loading"><div class="spinner"></div><p>Loading...</p></div>
+                </div>
+            </section>
+
+            <!-- Audio Section -->
+            <section id="sectionAudio" class="content-section">
+                <div class="header">
+                    <h1>Audio Files</h1>
+                </div>
+                <div class="toolbar">
+                    <div class="search-box">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                        <input type="text" id="searchAudio" placeholder="Search audio..." oninput="filterItems('audio')">
+                    </div>
+                    <select class="select-box" id="sortAudio" onchange="sortItems('audio')">
+                        <option value="date-desc">Newest First</option>
+                        <option value="date-asc">Oldest First</option>
+                        <option value="size-desc">Largest First</option>
+                    </select>
+                    <button class="btn btn-secondary" onclick="selectAll('audio')">Select All</button>
+                </div>
+                <div id="audioList" class="file-grid">
+                    <div class="loading"><div class="spinner"></div><p>Loading...</p></div>
+                </div>
+            </section>
+
+            <!-- Videos Section -->
+            <section id="sectionVideos" class="content-section">
+                <div class="header">
+                    <h1>Generated Videos</h1>
+                </div>
+                <div class="toolbar">
+                    <div class="search-box">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                        <input type="text" id="searchVideos" placeholder="Search videos..." oninput="filterItems('videos')">
+                    </div>
+                    <select class="select-box" id="sortVideos" onchange="sortItems('videos')">
+                        <option value="date-desc">Newest First</option>
+                        <option value="date-asc">Oldest First</option>
+                        <option value="size-desc">Largest First</option>
+                    </select>
+                    <button class="btn btn-secondary" onclick="selectAll('videos')">Select All</button>
+                </div>
+                <div id="videosList" class="file-grid">
+                    <div class="loading"><div class="spinner"></div><p>Loading...</p></div>
+                </div>
+            </section>
+
+            <!-- Settings Section -->
+            <section id="sectionSettings" class="content-section">
+                <div class="header">
+                    <h1>Settings</h1>
                 </div>
 
-                <!-- Audio Tab -->
-                <div id="audioTab" class="tab-content" style="display: none;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h2 style="margin: 0;">Downloaded Audio Files</h2>
-                        <div class="sort-controls">
-                            <label>Sort by:</label>
-                            <select id="audioSort" onchange="sortFiles('audio', this.value)">
-                                <option value="date-desc">Date (Newest First)</option>
-                                <option value="date-asc">Date (Oldest First)</option>
-                                <option value="size-desc">Size (Largest First)</option>
-                                <option value="size-asc">Size (Smallest First)</option>
-                                <option value="duration-desc">Duration (Longest)</option>
-                                <option value="duration-asc">Duration (Shortest)</option>
-                                <option value="name-asc">Name (A-Z)</option>
-                                <option value="name-desc">Name (Z-A)</option>
-                            </select>
-                        </div>
+                <div class="chart-container">
+                    <h3 style="margin-bottom: 16px;">Cleanup Files</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                        Delete files older than the specified time. This action cannot be undone.
+                    </p>
+                    <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                        <span>Delete files older than:</span>
+                        <select class="select-box" id="cleanupHours">
+                            <option value="1">1 hour</option>
+                            <option value="6">6 hours</option>
+                            <option value="24">24 hours</option>
+                            <option value="72">3 days</option>
+                            <option value="168">7 days</option>
+                        </select>
+                        <button class="btn btn-danger" onclick="cleanupFiles()">Run Cleanup</button>
                     </div>
-                    <div id="audioList" class="file-grid">
-                        <div class="loading">Loading audio files...</div>
-                    </div>
-                    <div id="audioPagination" class="pagination-controls"></div>
                 </div>
 
-                <!-- Videos Tab -->
-                <div id="videosTab" class="tab-content" style="display: none;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h2 style="margin: 0;">Generated Videos</h2>
-                        <div class="sort-controls">
-                            <label>Sort by:</label>
-                            <select id="videosSort" onchange="sortFiles('videos', this.value)">
-                                <option value="date-desc">Date (Newest First)</option>
-                                <option value="date-asc">Date (Oldest First)</option>
-                                <option value="size-desc">Size (Largest First)</option>
-                                <option value="size-asc">Size (Smallest First)</option>
-                                <option value="name-asc">Name (A-Z)</option>
-                                <option value="name-desc">Name (Z-A)</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div id="videosList" class="file-grid">
-                        <div class="loading">Loading videos...</div>
-                    </div>
-                    <div id="videosPagination" class="pagination-controls"></div>
+                <div class="chart-container">
+                    <h3 style="margin-bottom: 16px;">Export Data</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                        Download a JSON export of all sessions, audio files, and videos.
+                    </p>
+                    <button class="btn btn-primary" onclick="exportData()">Download Export</button>
                 </div>
+
+                <div class="chart-container">
+                    <h3 style="margin-bottom: 16px;">About</h3>
+                    <p style="color: var(--text-secondary);">
+                        Aiezzy Video - Slideshow Video Generator<br>
+                        Admin Panel v2.0<br><br>
+                        Automatic cleanup has been <strong style="color: var(--success);">disabled</strong>. Files will only be deleted manually through this panel.
+                    </p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Bulk Action Bar -->
+    <div id="bulkActionBar" class="bulk-action-bar">
+        <span class="bulk-count"><span id="selectedCount">0</span> selected</span>
+        <button class="btn btn-secondary btn-sm" onclick="clearSelection()">Clear</button>
+        <button class="btn btn-danger btn-sm" onclick="bulkDelete()">Delete Selected</button>
+    </div>
+
+    <!-- Cleanup Modal -->
+    <div id="cleanupModal" class="modal-overlay">
+        <div class="modal">
+            <h2>Cleanup Complete</h2>
+            <p id="cleanupResult">Deleted 0 files.</p>
+            <div class="modal-actions">
+                <button class="btn btn-primary" onclick="closeModal('cleanupModal')">Close</button>
             </div>
         </div>
     </div>
 
     <script>
-        let isAuthenticated = false;
-        let allFiles = {
-            images: [],
-            audio: [],
-            videos: []
-        };
+        // State
+        let data = { images: [], audio: [], videos: [], stats: {} };
+        let analytics = {};
+        let selected = { images: new Set(), audio: new Set(), videos: new Set() };
+        let storageChart = null;
+        let ageChart = null;
 
-        // Pagination state
-        const ITEMS_PER_PAGE = 20;
-        let pagination = {
-            images: { currentPage: 1, totalPages: 1 },
-            audio: { currentPage: 1, totalPages: 1 },
-            videos: { currentPage: 1, totalPages: 1 }
-        };
-
-        // Check if already authenticated
+        // Init
         checkAuth();
 
         function checkAuth() {
             const token = localStorage.getItem('adminToken');
             if (token) {
-                // Set cookie for media file access
-                document.cookie = `adminToken=${token}; path=/; max-age=86400; SameSite=Strict`;
-
-                fetch('/admin/verify', {
-                    headers: { 'Authorization': token }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.valid) {
-                        showDashboard();
-                    } else {
-                        showLoginForm();
-                    }
-                })
-                .catch(() => showLoginForm());
+                fetch('/admin/verify', { headers: { 'Authorization': token } })
+                    .then(r => r.json())
+                    .then(d => d.valid ? showDashboard() : showLogin())
+                    .catch(() => showLogin());
             } else {
-                showLoginForm();
+                showLogin();
             }
         }
 
-        function showLoginForm() {
-            document.getElementById('loginForm').style.display = 'block';
-            document.getElementById('adminDashboard').style.display = 'none';
+        function showLogin() {
+            document.getElementById('loginPage').style.display = 'flex';
+            document.getElementById('dashboard').style.display = 'none';
         }
 
         function showDashboard() {
-            document.getElementById('loginForm').style.display = 'none';
-            document.getElementById('adminDashboard').style.display = 'block';
-            isAuthenticated = true;
-            loadDashboardData();
+            document.getElementById('loginPage').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+            loadData();
         }
 
         async function login() {
-            const password = document.getElementById('adminPassword').value;
-            if (!password) {
-                document.getElementById('loginError').textContent = 'Please enter a password';
-                return;
-            }
+            const password = document.getElementById('passwordInput').value;
+            if (!password) return toast('Please enter password', 'error');
 
             try {
-                const response = await fetch('/admin/login', {
+                const res = await fetch('/admin/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ password })
                 });
-
-                const data = await response.json();
-                if (data.success) {
-                    localStorage.setItem('adminToken', data.token);
-                    // Also set as cookie for media files
-                    document.cookie = `adminToken=${data.token}; path=/; max-age=86400; SameSite=Strict`;
+                const d = await res.json();
+                if (d.success) {
+                    localStorage.setItem('adminToken', d.token);
                     showDashboard();
+                    toast('Welcome back!', 'success');
                 } else {
-                    document.getElementById('loginError').textContent = data.error || 'Invalid password';
+                    toast(d.error || 'Invalid password', 'error');
                 }
-            } catch (error) {
-                document.getElementById('loginError').textContent = 'Login failed. Please try again.';
+            } catch (e) {
+                toast('Login failed', 'error');
             }
         }
 
         function logout() {
-            // Clear localStorage
             localStorage.removeItem('adminToken');
-
-            // Clear cookie
-            document.cookie = 'adminToken=; path=/; max-age=0; SameSite=Strict';
-
-            // Show login form
-            showLoginForm();
-
-            // Optional: Show logout message
-            setTimeout(() => {
-                const loginError = document.getElementById('loginError');
-                loginError.style.color = '#48bb78';
-                loginError.textContent = 'Successfully logged out';
-                setTimeout(() => {
-                    loginError.textContent = '';
-                    loginError.style.color = '';
-                }, 2000);
-            }, 100);
+            showLogin();
+            toast('Logged out', 'info');
         }
 
-        async function loadDashboardData() {
+        async function loadData() {
             const token = localStorage.getItem('adminToken');
-            if (!token) {
-                showLoginForm();
-                return;
-            }
-
             try {
-                const response = await fetch('/admin/data', {
-                    headers: { 'Authorization': token }
-                });
+                // Load main data
+                const res = await fetch('/admin/data', { headers: { 'Authorization': token } });
+                if (!res.ok) throw new Error('Unauthorized');
+                data = await res.json();
 
-                if (!response.ok) {
-                    if (response.status === 401) {
-                        showLoginForm();
-                        return;
+                // Load analytics
+                const analyticsRes = await fetch('/admin/analytics', { headers: { 'Authorization': token } });
+                analytics = await analyticsRes.json();
+
+                updateStats();
+                renderCharts();
+                renderActivity();
+                renderImages();
+                renderAudio();
+                renderVideos();
+            } catch (e) {
+                toast('Failed to load data', 'error');
+                if (e.message === 'Unauthorized') logout();
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('statSessions').textContent = data.stats.image_sessions || 0;
+            document.getElementById('statAudio').textContent = data.stats.audio_files || 0;
+            document.getElementById('statVideos').textContent = data.stats.videos || 0;
+            document.getElementById('statStorage').textContent = formatSize(data.stats.total_size || 0);
+        }
+
+        function renderCharts() {
+            // Storage Chart
+            const storageCtx = document.getElementById('storageChart').getContext('2d');
+            if (storageChart) storageChart.destroy();
+            storageChart = new Chart(storageCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Images', 'Audio', 'Videos'],
+                    datasets: [{
+                        data: [
+                            analytics.storage_by_type?.images || 0,
+                            analytics.storage_by_type?.audio || 0,
+                            analytics.storage_by_type?.videos || 0
+                        ],
+                        backgroundColor: ['#3b82f6', '#8b5cf6', '#22c55e'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#94a3b8' } }
                     }
-                    throw new Error('Failed to load data');
                 }
-
-                const data = await response.json();
-
-                // Store all files for search
-                allFiles = data;
-
-                // Update statistics
-                document.getElementById('statImages').textContent = data.stats.image_sessions;
-                document.getElementById('statAudio').textContent = data.stats.audio_files;
-                document.getElementById('statVideos').textContent = data.stats.videos;
-                document.getElementById('statStorage').textContent = formatSize(data.stats.total_size);
-
-                // Display files
-                displayImages(data.images);
-                displayAudio(data.audio);
-                displayVideos(data.videos);
-
-                // Load images with authentication
-                setTimeout(() => loadAuthImages(), 100);
-
-            } catch (error) {
-                console.error('Error loading dashboard data:', error);
-                alert('Failed to load dashboard data');
-            }
-        }
-
-        function displayImages(sessions, page = 1) {
-            const container = document.getElementById('imagesList');
-
-            if (!sessions || sessions.length === 0) {
-                container.innerHTML = '<div class="empty-state">No image uploads found</div>';
-                document.getElementById('imagesPagination').innerHTML = '';
-                return;
-            }
-
-            // Calculate pagination
-            const totalPages = Math.ceil(sessions.length / ITEMS_PER_PAGE);
-            const startIdx = (page - 1) * ITEMS_PER_PAGE;
-            const endIdx = startIdx + ITEMS_PER_PAGE;
-            const paginatedSessions = sessions.slice(startIdx, endIdx);
-
-            // Update pagination state
-            pagination.images = { currentPage: page, totalPages: totalPages };
-
-            container.innerHTML = paginatedSessions.map(session => `
-                <div class="session-folder" data-search="${session.session_id}">
-                    <div class="session-id">Session: ${session.session_id}</div>
-                    <div class="file-info">📅 ${formatDate(session.created)}</div>
-                    <div class="file-info">📸 ${session.image_count} images</div>
-                    <div class="file-info">💾 ${formatSize(session.total_size)}</div>
-                    <div class="file-grid" style="margin-top: 10px;">
-                        ${session.images.map(img => `
-                            <div class="file-card" data-search="${img.name}">
-                                <img src="/admin/preview/image/${session.session_id}/${img.name}?token=${localStorage.getItem('adminToken')}"
-                                     class="image-preview" alt="${img.name}"
-                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
-                                     loading="lazy">
-                                <div style="display:none; padding: 20px; background: #f5f5f5; text-align: center; color: #999;">📷 Image</div>
-                                <div class="file-name">${img.name}</div>
-                                <div class="file-info">${formatSize(img.size)}</div>
-                            </div>
-                        `).join('')}
-                    </div>
-                    <div class="file-actions">
-                        <button class="btn btn-delete" onclick="deleteSession('${session.session_id}')">Delete Session</button>
-                    </div>
-                </div>
-            `).join('');
-
-            // Render pagination controls
-            renderPagination('images', sessions.length);
-        }
-
-        function displayAudio(audioFiles, page = 1) {
-            const container = document.getElementById('audioList');
-
-            if (!audioFiles || audioFiles.length === 0) {
-                container.innerHTML = '<div class="empty-state">No audio files found</div>';
-                document.getElementById('audioPagination').innerHTML = '';
-                return;
-            }
-
-            // Calculate pagination
-            const totalPages = Math.ceil(audioFiles.length / ITEMS_PER_PAGE);
-            const startIdx = (page - 1) * ITEMS_PER_PAGE;
-            const endIdx = startIdx + ITEMS_PER_PAGE;
-            const paginatedAudio = audioFiles.slice(startIdx, endIdx);
-
-            // Update pagination state
-            pagination.audio = { currentPage: page, totalPages: totalPages };
-
-            container.innerHTML = paginatedAudio.map(audio => `
-                <div class="file-card" data-search="${audio.name} ${audio.title || ''}">
-                    <span class="file-type">${audio.source}</span>
-                    <div class="file-name">${audio.name}</div>
-                    ${audio.title ? `<div class="file-info">🎵 ${audio.title}</div>` : ''}
-                    <div class="file-info">📅 ${formatDate(audio.created)}</div>
-                    <div class="file-info">⏱️ ${formatDuration(audio.duration)}</div>
-                    <div class="file-info">💾 ${formatSize(audio.size)}</div>
-                    ${audio.trimmed ? '<div class="file-info">✂️ Trimmed</div>' : ''}
-                    <audio controls class="audio-player" preload="metadata">
-                        <source src="/admin/preview/audio/${audio.id}" type="audio/webm">
-                        <source src="/admin/preview/audio/${audio.id}" type="audio/mpeg">
-                        Your browser does not support audio playback.
-                    </audio>
-                    <div class="file-actions">
-                        <a href="/admin/download/audio/${audio.id}" class="btn btn-download">Download</a>
-                        <button class="btn btn-delete" onclick="deleteAudio('${audio.id}')">Delete</button>
-                    </div>
-                </div>
-            `).join('');
-
-            // Render pagination controls
-            renderPagination('audio', audioFiles.length);
-        }
-
-        function displayVideos(videos, page = 1) {
-            const container = document.getElementById('videosList');
-
-            if (!videos || videos.length === 0) {
-                container.innerHTML = '<div class="empty-state">No generated videos found</div>';
-                document.getElementById('videosPagination').innerHTML = '';
-                return;
-            }
-
-            // Calculate pagination
-            const totalPages = Math.ceil(videos.length / ITEMS_PER_PAGE);
-            const startIdx = (page - 1) * ITEMS_PER_PAGE;
-            const endIdx = startIdx + ITEMS_PER_PAGE;
-            const paginatedVideos = videos.slice(startIdx, endIdx);
-
-            // Update pagination state
-            pagination.videos = { currentPage: page, totalPages: totalPages };
-
-            container.innerHTML = paginatedVideos.map(video => `
-                <div class="file-card" data-search="${video.name}">
-                    <div class="file-name">${video.name}</div>
-                    <div class="file-info">📅 ${formatDate(video.created)}</div>
-                    <div class="file-info">💾 ${formatSize(video.size)}</div>
-                    <video controls class="video-preview" preload="metadata">
-                        <source src="/admin/preview/video/${video.id}" type="video/mp4">
-                        Your browser does not support video playback.
-                    </video>
-                    <div class="file-actions">
-                        <a href="/download/${video.id}" class="btn btn-download">Download</a>
-                        <button class="btn btn-delete" onclick="deleteVideo('${video.id}')">Delete</button>
-                    </div>
-                </div>
-            `).join('');
-
-            // Render pagination controls
-            renderPagination('videos', videos.length);
-        }
-
-        function renderPagination(type, totalItems) {
-            const paginationContainer = document.getElementById(`${type}Pagination`);
-            const state = pagination[type];
-
-            if (state.totalPages <= 1) {
-                paginationContainer.innerHTML = '';
-                return;
-            }
-
-            const startItem = (state.currentPage - 1) * ITEMS_PER_PAGE + 1;
-            const endItem = Math.min(state.currentPage * ITEMS_PER_PAGE, totalItems);
-
-            let html = `
-                <button onclick="changePage('${type}', ${state.currentPage - 1})" ${state.currentPage === 1 ? 'disabled' : ''}>
-                    ⬅️ Previous
-                </button>
-                <div class="pagination-info">
-                    ${startItem}-${endItem} of ${totalItems}
-                </div>
-                <div class="page-numbers">
-            `;
-
-            // Generate page numbers with ellipsis
-            const maxVisiblePages = 5;
-            let startPage = Math.max(1, state.currentPage - Math.floor(maxVisiblePages / 2));
-            let endPage = Math.min(state.totalPages, startPage + maxVisiblePages - 1);
-
-            if (endPage - startPage < maxVisiblePages - 1) {
-                startPage = Math.max(1, endPage - maxVisiblePages + 1);
-            }
-
-            if (startPage > 1) {
-                html += `<span class="page-number" onclick="changePage('${type}', 1)">1</span>`;
-                if (startPage > 2) {
-                    html += `<span class="page-number ellipsis">...</span>`;
-                }
-            }
-
-            for (let i = startPage; i <= endPage; i++) {
-                html += `<span class="page-number ${i === state.currentPage ? 'active' : ''}"
-                         onclick="changePage('${type}', ${i})">${i}</span>`;
-            }
-
-            if (endPage < state.totalPages) {
-                if (endPage < state.totalPages - 1) {
-                    html += `<span class="page-number ellipsis">...</span>`;
-                }
-                html += `<span class="page-number" onclick="changePage('${type}', ${state.totalPages})">${state.totalPages}</span>`;
-            }
-
-            html += `
-                </div>
-                <button onclick="changePage('${type}', ${state.currentPage + 1})" ${state.currentPage === state.totalPages ? 'disabled' : ''}>
-                    Next ➡️
-                </button>
-            `;
-
-            paginationContainer.innerHTML = html;
-        }
-
-        function changePage(type, page) {
-            if (page < 1 || page > pagination[type].totalPages) return;
-
-            // Scroll to top of section
-            const tabMap = {
-                'images': 'imagesTab',
-                'audio': 'audioTab',
-                'videos': 'videosTab'
-            };
-            document.getElementById(tabMap[type]).scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-            // Re-render with new page
-            if (type === 'images') {
-                displayImages(allFiles.images, page);
-            } else if (type === 'audio') {
-                displayAudio(allFiles.audio, page);
-            } else if (type === 'videos') {
-                displayVideos(allFiles.videos, page);
-            }
-
-            // Reload auth images if needed
-            if (type === 'images') {
-                setTimeout(() => loadAuthImages(), 100);
-            }
-        }
-
-        function sortFiles(type, sortBy) {
-            let items = [...allFiles[type]]; // Create a copy
-
-            const [field, order] = sortBy.split('-');
-
-            // Sort based on field
-            items.sort((a, b) => {
-                let valA, valB;
-
-                switch (field) {
-                    case 'date':
-                        valA = new Date(a.created);
-                        valB = new Date(b.created);
-                        break;
-                    case 'size':
-                        valA = a.total_size || a.size;
-                        valB = b.total_size || b.size;
-                        break;
-                    case 'count':
-                        valA = a.image_count || 0;
-                        valB = b.image_count || 0;
-                        break;
-                    case 'duration':
-                        valA = a.duration || 0;
-                        valB = b.duration || 0;
-                        break;
-                    case 'name':
-                        valA = (a.name || '').toLowerCase();
-                        valB = (b.name || '').toLowerCase();
-                        break;
-                    default:
-                        return 0;
-                }
-
-                // Compare values
-                if (valA < valB) return order === 'asc' ? -1 : 1;
-                if (valA > valB) return order === 'asc' ? 1 : -1;
-                return 0;
             });
 
-            // Update allFiles with sorted data
-            allFiles[type] = items;
-
-            // Reset to page 1 and re-render
-            pagination[type].currentPage = 1;
-
-            if (type === 'images') {
-                displayImages(items, 1);
-                setTimeout(() => loadAuthImages(), 100);
-            } else if (type === 'audio') {
-                displayAudio(items, 1);
-            } else if (type === 'videos') {
-                displayVideos(items, 1);
-            }
-        }
-
-        function showTab(tabName) {
-            // Update tab buttons
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            event.target.classList.add('active');
-
-            // Show/hide tab content
-            document.getElementById('imagesTab').style.display = tabName === 'images' ? 'block' : 'none';
-            document.getElementById('audioTab').style.display = tabName === 'audio' ? 'block' : 'none';
-            document.getElementById('videosTab').style.display = tabName === 'videos' ? 'block' : 'none';
-        }
-
-        function searchFiles() {
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-
-            document.querySelectorAll('[data-search]').forEach(element => {
-                const searchData = element.getAttribute('data-search').toLowerCase();
-                element.style.display = searchData.includes(searchTerm) ? '' : 'none';
+            // Age Chart
+            const ageCtx = document.getElementById('ageChart').getContext('2d');
+            if (ageChart) ageChart.destroy();
+            const ageData = analytics.files_by_age || {};
+            ageChart = new Chart(ageCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['< 1h', '1-6h', '6-24h', '1-7d', '> 7d'],
+                    datasets: [{
+                        label: 'Files',
+                        data: [ageData['1h'] || 0, ageData['6h'] || 0, ageData['24h'] || 0, ageData['7d'] || 0, ageData['older'] || 0],
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                    }
+                }
             });
         }
 
-        async function deleteSession(sessionId) {
-            if (!confirm(`Delete image session ${sessionId}? This will remove all images in this session.`)) {
+        function renderActivity() {
+            const list = document.getElementById('activityList');
+            const activity = analytics.recent_activity || [];
+
+            if (activity.length === 0) {
+                list.innerHTML = '<div class="empty-state"><p>No recent activity</p></div>';
                 return;
             }
 
-            const token = localStorage.getItem('adminToken');
-            try {
-                const response = await fetch(`/admin/delete/session/${sessionId}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': token }
-                });
-
-                if (response.ok) {
-                    loadDashboardData();
-                } else {
-                    alert('Failed to delete session');
-                }
-            } catch (error) {
-                alert('Error deleting session');
-            }
+            list.innerHTML = activity.slice(0, 10).map(item => {
+                const icon = item.type === 'upload' ? 'upload' : item.type === 'audio' ? 'audio' : 'video';
+                const emoji = item.type === 'upload' ? '&#128247;' : item.type === 'audio' ? '&#127925;' : '&#127909;';
+                return `
+                    <div class="timeline-item">
+                        <div class="timeline-icon ${icon}">${emoji}</div>
+                        <div class="timeline-content">
+                            <div class="timeline-title">${item.type.charAt(0).toUpperCase() + item.type.slice(1)}: ${item.id.substring(0, 8)}...</div>
+                            <div class="timeline-meta">${formatDate(item.created)} &bull; ${formatSize(item.size)}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
 
-        async function deleteAudio(audioId) {
-            if (!confirm('Delete this audio file?')) {
+        function renderImages() {
+            const list = document.getElementById('imagesList');
+            const sessions = data.images || [];
+
+            if (sessions.length === 0) {
+                list.innerHTML = '<div class="empty-state"><p>No image sessions found</p></div>';
                 return;
             }
 
-            const token = localStorage.getItem('adminToken');
-            try {
-                const response = await fetch(`/admin/delete/audio/${audioId}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': token }
-                });
-
-                if (response.ok) {
-                    loadDashboardData();
-                } else {
-                    alert('Failed to delete audio');
-                }
-            } catch (error) {
-                alert('Error deleting audio');
-            }
+            list.innerHTML = sessions.map(s => `
+                <div class="file-card ${selected.images.has(s.session_id) ? 'selected' : ''}" data-id="${s.session_id}" data-search="${s.session_id}">
+                    <div class="preview">
+                        <div class="checkbox ${selected.images.has(s.session_id) ? 'checked' : ''}" onclick="toggleSelect('images', '${s.session_id}')">
+                            ${selected.images.has(s.session_id) ? '&#10003;' : ''}
+                        </div>
+                        <span style="font-size: 48px;">&#128247;</span>
+                    </div>
+                    <div class="info">
+                        <div class="name">${s.session_id}</div>
+                        <div class="meta">
+                            <span>${s.image_count} images</span>
+                            <span>${formatSize(s.total_size)}</span>
+                            <span>${formatDate(s.created)}</span>
+                        </div>
+                        <div class="actions">
+                            <button class="btn btn-danger btn-sm" onclick="deleteSession('${s.session_id}')">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
         }
 
-        async function deleteVideo(videoId) {
-            if (!confirm('Delete this video?')) {
+        function renderAudio() {
+            const list = document.getElementById('audioList');
+            const audioFiles = data.audio || [];
+
+            if (audioFiles.length === 0) {
+                list.innerHTML = '<div class="empty-state"><p>No audio files found</p></div>';
                 return;
             }
 
-            const token = localStorage.getItem('adminToken');
-            try {
-                const response = await fetch(`/admin/delete/video/${videoId}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': token }
-                });
-
-                if (response.ok) {
-                    loadDashboardData();
-                } else {
-                    alert('Failed to delete video');
-                }
-            } catch (error) {
-                alert('Error deleting video');
-            }
+            list.innerHTML = audioFiles.map(a => `
+                <div class="file-card ${selected.audio.has(a.id) ? 'selected' : ''}" data-id="${a.id}" data-search="${a.name} ${a.title || ''}">
+                    <div class="preview">
+                        <div class="checkbox ${selected.audio.has(a.id) ? 'checked' : ''}" onclick="toggleSelect('audio', '${a.id}')">
+                            ${selected.audio.has(a.id) ? '&#10003;' : ''}
+                        </div>
+                        <span style="font-size: 48px;">&#127925;</span>
+                    </div>
+                    <div class="info">
+                        <div class="name">${a.name}</div>
+                        <div class="meta">
+                            <span class="badge purple">${a.source}</span>
+                            <span>${formatSize(a.size)}</span>
+                            <span>${formatDate(a.created)}</span>
+                        </div>
+                        <div class="actions">
+                            <button class="btn btn-secondary btn-sm" onclick="window.open('/admin/download/audio/${a.id}')">Download</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteAudio('${a.id}')">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
         }
 
-        async function cleanupOldFiles() {
-            if (!confirm('Clean up files older than 1 hour?')) {
+        function renderVideos() {
+            const list = document.getElementById('videosList');
+            const videos = data.videos || [];
+
+            if (videos.length === 0) {
+                list.innerHTML = '<div class="empty-state"><p>No videos found</p></div>';
                 return;
             }
 
+            list.innerHTML = videos.map(v => `
+                <div class="file-card ${selected.videos.has(v.id) ? 'selected' : ''}" data-id="${v.id}" data-search="${v.name}">
+                    <div class="preview">
+                        <div class="checkbox ${selected.videos.has(v.id) ? 'checked' : ''}" onclick="toggleSelect('videos', '${v.id}')">
+                            ${selected.videos.has(v.id) ? '&#10003;' : ''}
+                        </div>
+                        <video src="/admin/preview/video/${v.id}" preload="metadata"></video>
+                    </div>
+                    <div class="info">
+                        <div class="name">${v.name}</div>
+                        <div class="meta">
+                            <span class="badge green">MP4</span>
+                            <span>${formatSize(v.size)}</span>
+                            <span>${formatDate(v.created)}</span>
+                        </div>
+                        <div class="actions">
+                            <button class="btn btn-secondary btn-sm" onclick="window.open('/download/${v.id}')">Download</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteVideo('${v.id}')">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function showSection(section) {
+            document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById('section' + section.charAt(0).toUpperCase() + section.slice(1)).classList.add('active');
+            event.target.closest('.nav-item').classList.add('active');
+        }
+
+        function toggleSelect(type, id) {
+            if (selected[type].has(id)) {
+                selected[type].delete(id);
+            } else {
+                selected[type].add(id);
+            }
+            updateBulkBar();
+
+            // Re-render to update checkboxes
+            if (type === 'images') renderImages();
+            else if (type === 'audio') renderAudio();
+            else if (type === 'videos') renderVideos();
+        }
+
+        function selectAll(type) {
+            const items = type === 'images' ? data.images : type === 'audio' ? data.audio : data.videos;
+            const idKey = type === 'images' ? 'session_id' : 'id';
+
+            if (selected[type].size === items.length) {
+                selected[type].clear();
+            } else {
+                items.forEach(i => selected[type].add(i[idKey]));
+            }
+            updateBulkBar();
+
+            if (type === 'images') renderImages();
+            else if (type === 'audio') renderAudio();
+            else if (type === 'videos') renderVideos();
+        }
+
+        function clearSelection() {
+            selected = { images: new Set(), audio: new Set(), videos: new Set() };
+            updateBulkBar();
+            renderImages();
+            renderAudio();
+            renderVideos();
+        }
+
+        function updateBulkBar() {
+            const total = selected.images.size + selected.audio.size + selected.videos.size;
+            document.getElementById('selectedCount').textContent = total;
+            document.getElementById('bulkActionBar').classList.toggle('show', total > 0);
+        }
+
+        async function bulkDelete() {
+            if (!confirm('Delete all selected items? This cannot be undone.')) return;
+
             const token = localStorage.getItem('adminToken');
             try {
-                const response = await fetch('/admin/cleanup', {
+                const res = await fetch('/admin/bulk-delete', {
                     method: 'POST',
-                    headers: { 'Authorization': token }
+                    headers: { 'Authorization': token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sessions: Array.from(selected.images),
+                        audio: Array.from(selected.audio),
+                        videos: Array.from(selected.videos)
+                    })
                 });
-
-                const data = await response.json();
-                if (data.success) {
-                    alert(`Cleaned up ${data.deleted_count} old files`);
-                    loadDashboardData();
-                } else {
-                    alert('Failed to clean up files');
+                const d = await res.json();
+                if (d.success) {
+                    toast(`Deleted ${d.deleted.sessions} sessions, ${d.deleted.audio} audio, ${d.deleted.videos} videos`, 'success');
+                    clearSelection();
+                    loadData();
                 }
-            } catch (error) {
-                alert('Error cleaning up files');
+            } catch (e) {
+                toast('Delete failed', 'error');
             }
         }
 
+        async function deleteSession(id) {
+            if (!confirm('Delete this session?')) return;
+            const token = localStorage.getItem('adminToken');
+            await fetch(`/admin/delete/session/${id}`, { method: 'DELETE', headers: { 'Authorization': token } });
+            toast('Session deleted', 'success');
+            loadData();
+        }
+
+        async function deleteAudio(id) {
+            if (!confirm('Delete this audio?')) return;
+            const token = localStorage.getItem('adminToken');
+            await fetch(`/admin/delete/audio/${id}`, { method: 'DELETE', headers: { 'Authorization': token } });
+            toast('Audio deleted', 'success');
+            loadData();
+        }
+
+        async function deleteVideo(id) {
+            if (!confirm('Delete this video?')) return;
+            const token = localStorage.getItem('adminToken');
+            await fetch(`/admin/delete/video/${id}`, { method: 'DELETE', headers: { 'Authorization': token } });
+            toast('Video deleted', 'success');
+            loadData();
+        }
+
+        async function cleanupFiles() {
+            const hours = parseInt(document.getElementById('cleanupHours').value);
+            if (!confirm(`Delete all files older than ${hours} hour(s)?`)) return;
+
+            const token = localStorage.getItem('adminToken');
+            try {
+                const res = await fetch('/admin/cleanup', {
+                    method: 'POST',
+                    headers: { 'Authorization': token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ hours })
+                });
+                const d = await res.json();
+                document.getElementById('cleanupResult').textContent = `Deleted ${d.deleted_count} files older than ${hours} hour(s).`;
+                document.getElementById('cleanupModal').classList.add('show');
+                loadData();
+            } catch (e) {
+                toast('Cleanup failed', 'error');
+            }
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('show');
+        }
+
+        async function exportData() {
+            const token = localStorage.getItem('adminToken');
+            window.open(`/admin/export?token=${token}`, '_blank');
+            toast('Export started', 'info');
+        }
+
+        function filterItems(type) {
+            const search = document.getElementById('search' + type.charAt(0).toUpperCase() + type.slice(1)).value.toLowerCase();
+            document.querySelectorAll(`#${type}List .file-card`).forEach(card => {
+                const searchText = card.getAttribute('data-search').toLowerCase();
+                card.style.display = searchText.includes(search) ? '' : 'none';
+            });
+        }
+
+        function sortItems(type) {
+            // Re-sort and re-render
+            const sortValue = document.getElementById('sort' + type.charAt(0).toUpperCase() + type.slice(1)).value;
+            const [field, order] = sortValue.split('-');
+
+            const items = type === 'images' ? data.images : type === 'audio' ? data.audio : data.videos;
+            items.sort((a, b) => {
+                let valA = field === 'date' ? a.created : (a.total_size || a.size);
+                let valB = field === 'date' ? b.created : (b.total_size || b.size);
+                return order === 'asc' ? valA - valB : valB - valA;
+            });
+
+            if (type === 'images') renderImages();
+            else if (type === 'audio') renderAudio();
+            else if (type === 'videos') renderVideos();
+        }
+
+        // Utilities
         function formatSize(bytes) {
-            if (bytes === 0) return '0 B';
+            if (!bytes) return '0 B';
             const k = 1024;
             const sizes = ['B', 'KB', 'MB', 'GB'];
             const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+            return (bytes / Math.pow(k, i)).toFixed(1) + ' ' + sizes[i];
         }
 
-        function formatDate(timestamp) {
-            return new Date(timestamp * 1000).toLocaleString();
+        function formatDate(ts) {
+            return new Date(ts * 1000).toLocaleString();
         }
 
-        function formatDuration(seconds) {
-            if (!seconds) return 'Unknown';
-            const mins = Math.floor(seconds / 60);
-            const secs = Math.floor(seconds % 60);
-            return `${mins}:${secs.toString().padStart(2, '0')}`;
-        }
-
-        async function loadAuthImages() {
-            const token = localStorage.getItem('adminToken');
-            const images = document.querySelectorAll('img[data-src]');
-
-            for (const img of images) {
-                const src = img.getAttribute('data-src');
-                if (src && src.startsWith('/admin/preview/image/')) {
-                    try {
-                        const response = await fetch(src, {
-                            headers: { 'Authorization': token }
-                        });
-                        if (response.ok) {
-                            const blob = await response.blob();
-                            img.src = URL.createObjectURL(blob);
-                        }
-                    } catch (error) {
-                        console.error('Failed to load image:', src);
-                    }
-                }
-                img.removeAttribute('data-src');
-            }
+        function toast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = message;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
         }
     </script>
 </body>
