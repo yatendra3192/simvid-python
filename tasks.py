@@ -153,11 +153,20 @@ def generate_video_job(job_id, session_id, audio_id, duration, transition, resol
         update_progress(job_id, 'encoding', 60, 'Encoding video with FFmpeg...')
 
         # Build FFmpeg command - optimized for speed
+        # IMPORTANT: Order matters! All inputs first, then filters, then output
         ffmpeg_cmd = [
             ffmpeg_path, '-y',
             '-f', 'concat',
             '-safe', '0',
             '-i', concat_file,
+        ]
+
+        # Add audio input BEFORE filters
+        if audio_path:
+            ffmpeg_cmd.extend(['-i', audio_path])
+
+        # Now add video filter and encoding options
+        ffmpeg_cmd.extend([
             '-vf', f'scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black',
             '-c:v', 'libx264',
             '-preset', 'ultrafast',  # Maximum speed
@@ -165,13 +174,11 @@ def generate_video_job(job_id, session_id, audio_id, duration, transition, resol
             '-pix_fmt', 'yuv420p',
             '-movflags', '+faststart',
             '-r', '30',
-        ]
+        ])
 
-        # Add audio if available
+        # Add audio encoding options if audio present
         if audio_path:
-            video_duration = total_images * duration
             ffmpeg_cmd.extend([
-                '-i', audio_path,
                 '-c:a', 'aac',
                 '-b:a', '128k',
                 '-shortest',
