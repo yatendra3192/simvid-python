@@ -1,27 +1,16 @@
 """
 Background Tasks for Video Generation
-These tasks run in RQ workers
+These tasks run in RQ workers - OPTIMIZED with FFmpeg concat demuxer
 """
 
 import os
-import uuid
-from datetime import datetime
-# MoviePy 2.x compatible imports
-try:
-    from moviepy import ImageClip, AudioFileClip, concatenate_videoclips, concatenate_audioclips
-except ImportError:
-    # Fallback for MoviePy 1.x
-    from moviepy.editor import ImageClip, AudioFileClip, concatenate_videoclips
-    from moviepy.audio.AudioClip import concatenate_audioclips
-from PIL import Image
+import glob
+import subprocess
 import json
+from datetime import datetime
 from redis import Redis
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import numpy as np
-import multiprocessing
 
-# Import configuration from app
-# Match app.py folder configuration logic
+# Configuration - match app.py folder logic
 RAILWAY_VOLUME = os.environ.get('RAILWAY_VOLUME_MOUNT_PATH')
 if RAILWAY_VOLUME:
     UPLOAD_FOLDER = os.path.join(RAILWAY_VOLUME, 'uploads')
@@ -47,6 +36,7 @@ if redis_url:
         print("[Worker] [OK] Connected to Redis for progress updates")
     except Exception as e:
         print(f"[Worker] [WARN] Failed to connect to Redis: {e}")
+
 
 def update_progress(job_id, stage, progress, message=""):
     """Update job progress in Redis"""
@@ -77,16 +67,6 @@ def safe_join_path(base_path, *paths):
     return final_path
 
 
-def fix_image_orientation(img):
-    """Fix image orientation based on EXIF data"""
-    try:
-        from PIL import ImageOps
-        img = ImageOps.exif_transpose(img)
-    except Exception as e:
-        print(f"Could not fix orientation: {e}")
-    return img
-
-
 def get_image_files(session_id):
     """Get all image files for a session"""
     session_path = safe_join_path(UPLOAD_FOLDER, session_id)
@@ -95,7 +75,7 @@ def get_image_files(session_id):
 
     images = []
     for filename in os.listdir(session_path):
-        if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
+        if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')):
             images.append(os.path.join(session_path, filename))
 
     # Sort by filename to maintain order
@@ -103,57 +83,20 @@ def get_image_files(session_id):
     return images
 
 
-def process_single_image_task(args):
-    """Process a single image for video generation - optimized for parallel processing"""
-    img_path, width, height = args
-
-    # Load and fix orientation
-    img = Image.open(img_path)
-    img = fix_image_orientation(img)
-    img = img.convert('RGB')
-
-    # Calculate scaling to fit within resolution while maintaining aspect ratio
-    img_ratio = img.width / img.height
-    video_ratio = width / height
-
-    if img_ratio > video_ratio:
-        new_width = width
-        new_height = int(width / img_ratio)
-    else:
-        new_height = height
-        new_width = int(height * img_ratio)
-
-    img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-
-    # Create black background
-    background = Image.new('RGB', (width, height), (0, 0, 0))
-
-    # Paste image centered
-    x = (width - new_width) // 2
-    y = (height - new_height) // 2
-    background.paste(img, (x, y))
-
-    # Convert to numpy array
-    return np.array(background)
+def get_ffmpeg_path():
+    """Get FFmpeg path - use system ffmpeg on Linux/Railway"""
+    # On Railway/Linux, ffmpeg is in PATH
+    return 'ffmpeg'
 
 
 def generate_video_job(job_id, session_id, audio_id, duration, transition, resolution):
     """
-    Background job to generate video
+    Background job to generate video using FFmpeg concat demuxer (FAST!)
 
-    Args:
-        job_id: Unique job identifier
-        session_id: User session ID with uploaded images
-        audio_id: Audio file ID (optional)
-        duration: Duration per image in seconds
-        transition: Transition effect ('fade', 'none', etc.)
-        resolution: Video resolution (e.g., '1920x1080')
-
-    Returns:
-        dict: Job result with success status and file paths
+    This bypasses MoviePy entirely for 40x faster encoding.
     """
     try:
-        print(f"[{job_id}] Starting video generation...")
+        print(f"[{job_id}] Starting video generation (FFmpeg mode)...")
         print(f"[{job_id}] Session: {session_id}, Duration: {duration}s, Resolution: {resolution}")
         update_progress(job_id, 'initializing', 5, 'Starting video generation...')
 
@@ -176,132 +119,109 @@ def generate_video_job(job_id, session_id, audio_id, duration, transition, resol
         # Get target resolution
         width, height = map(int, resolution.split('x'))
 
-        # Update progress: Processing images using parallel processing
-        update_progress(job_id, 'processing', 10, f'Processing {total_images} images in parallel...')
-        print(f"[{job_id}] Processing {total_images} images in parallel...")
+        # Create concat file for FFmpeg (MUCH faster than MoviePy)
+        update_progress(job_id, 'processing', 20, 'Preparing images for encoding...')
 
-        # Prepare arguments for parallel processing
-        process_args = [(img_path, width, height) for img_path in image_files]
+        concat_file = os.path.join(OUTPUT_FOLDER, f"{job_id}_concat.txt")
+        with open(concat_file, 'w') as f:
+            for idx, img_path in enumerate(image_files):
+                # Use absolute path
+                abs_path = os.path.abspath(img_path)
+                f.write(f"file '{abs_path}'\n")
+                f.write(f"duration {duration}\n")
+            # Add last image again (required by concat demuxer)
+            last_abs_path = os.path.abspath(image_files[-1])
+            f.write(f"file '{last_abs_path}'\n")
 
-        # Use ThreadPoolExecutor for parallel image processing (4x faster)
-        max_workers = min(8, total_images)
-        processed_frames = [None] * total_images
+        update_progress(job_id, 'processing', 40, f'Processing {total_images} images...')
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_idx = {executor.submit(process_single_image_task, args): idx
-                           for idx, args in enumerate(process_args)}
+        # Output path
+        output_path = safe_join_path(OUTPUT_FOLDER, f"{job_id}.mp4")
 
-            completed = 0
-            for future in as_completed(future_to_idx):
-                idx = future_to_idx[future]
-                try:
-                    processed_frames[idx] = future.result()
-                    completed += 1
-                    progress = 10 + int((completed / total_images) * 50)
-                    update_progress(job_id, 'processing', progress, f'Processed {completed}/{total_images} images')
-                    print(f"[{job_id}] Processed {completed}/{total_images} images ({progress}%)")
-                except Exception as e:
-                    print(f"[{job_id}] Error processing image {idx + 1}: {e}")
-                    raise
+        # Get FFmpeg path
+        ffmpeg_path = get_ffmpeg_path()
 
-        # Create video clips from processed frames
-        clips = []
-        for frame in processed_frames:
-            if frame is not None:
-                clip = ImageClip(frame, duration=duration)
-                clips.append(clip)
+        # Check for audio
+        audio_path = None
+        if audio_id:
+            audio_files = glob.glob(os.path.join(AUDIO_FOLDER, f"{audio_id}.*"))
+            audio_files = [f for f in audio_files if not f.endswith('_trim.json')]
+            if audio_files:
+                audio_path = audio_files[0]
+                print(f"[{job_id}] Found audio: {os.path.basename(audio_path)}")
 
-        if len(clips) == 0:
+        update_progress(job_id, 'encoding', 60, 'Encoding video with FFmpeg...')
+
+        # Build FFmpeg command - optimized for speed
+        ffmpeg_cmd = [
+            ffmpeg_path, '-y',
+            '-f', 'concat',
+            '-safe', '0',
+            '-i', concat_file,
+            '-vf', f'scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black',
+            '-c:v', 'libx264',
+            '-preset', 'ultrafast',  # Maximum speed
+            '-tune', 'stillimage',   # Optimized for slideshow
+            '-pix_fmt', 'yuv420p',
+            '-movflags', '+faststart',
+            '-r', '30',
+        ]
+
+        # Add audio if available
+        if audio_path:
+            video_duration = total_images * duration
+            ffmpeg_cmd.extend([
+                '-i', audio_path,
+                '-c:a', 'aac',
+                '-b:a', '128k',
+                '-shortest',
+            ])
+
+        ffmpeg_cmd.append(output_path)
+
+        print(f"[{job_id}] Running FFmpeg: {' '.join(ffmpeg_cmd[:10])}...")
+
+        # Run FFmpeg
+        result = subprocess.run(
+            ffmpeg_cmd,
+            capture_output=True,
+            text=True,
+            timeout=300  # 5 minute timeout
+        )
+
+        # Clean up concat file
+        try:
+            os.remove(concat_file)
+        except:
+            pass
+
+        if result.returncode != 0:
+            error_msg = result.stderr[-500:] if result.stderr else 'Unknown FFmpeg error'
+            print(f"[{job_id}] FFmpeg error: {error_msg}")
+            update_progress(job_id, 'error', 0, f'Encoding failed: {error_msg[:100]}')
             return {
                 'success': False,
-                'error': 'Failed to process any images',
+                'error': f'FFmpeg encoding failed: {error_msg[:200]}',
                 'stage': 'error',
                 'progress': 0
             }
 
-        # Concatenate clips
-        update_progress(job_id, 'concatenating', 60, f'Combining {len(clips)} clips...')
-        print(f"[{job_id}] Concatenating {len(clips)} clips...")
-        final_video = concatenate_videoclips(clips, method="compose")
+        # Verify output exists
+        if not os.path.exists(output_path):
+            update_progress(job_id, 'error', 0, 'Output file not created')
+            return {
+                'success': False,
+                'error': 'Video file was not created',
+                'stage': 'error',
+                'progress': 0
+            }
 
-        # Add audio if provided
-        if audio_id:
-            update_progress(job_id, 'audio', 70, 'Adding background music...')
-            print(f"[{job_id}] Adding audio: {audio_id}")
-
-            # Find audio file with any extension (YouTube downloads can be .webm, .m4a, .opus, etc.)
-            import glob
-            audio_files = glob.glob(os.path.join(AUDIO_FOLDER, f"{audio_id}.*"))
-            # Filter out trim info files
-            audio_files = [f for f in audio_files if not f.endswith('_trim.json')]
-
-            if audio_files:
-                audio_path = audio_files[0]
-                print(f"[{job_id}] Found audio file: {os.path.basename(audio_path)}")
-                try:
-                    audio_clip = AudioFileClip(audio_path)
-                    video_duration = final_video.duration
-
-                    # Trim or loop audio to match video duration
-                    if audio_clip.duration > video_duration:
-                        # Trim audio
-                        audio_clip = audio_clip.subclipped(0, video_duration)
-                    elif audio_clip.duration < video_duration:
-                        # Loop audio - reload file for each loop (copy() doesn't work in MoviePy 2.x)
-                        loops_needed = int(video_duration / audio_clip.duration) + 1
-                        from moviepy.audio.AudioClip import concatenate_audioclips
-                        audio_clips = [AudioFileClip(audio_path) for _ in range(loops_needed)]
-                        audio_clip = concatenate_audioclips(audio_clips).subclipped(0, video_duration)
-
-                    final_video = final_video.with_audio(audio_clip)
-                    print(f"[{job_id}] Audio added successfully")
-                except Exception as e:
-                    print(f"[{job_id}] Warning: Could not add audio: {e}")
-            else:
-                print(f"[{job_id}] Warning: Audio file not found for audio_id: {audio_id}")
-
-        # Resolution is already set correctly for each image (letterboxed)
-        # No need to resize the final video
-
-        # Generate output path
-        output_path = safe_join_path(OUTPUT_FOLDER, f"{job_id}.mp4")
-
-        # Write video file with optimized settings
-        update_progress(job_id, 'encoding', 75, 'Encoding video file...')
-        print(f"[{job_id}] Encoding video to {output_path}...")
-
-        # Use multiple threads for faster encoding
-        num_threads = min(multiprocessing.cpu_count(), 8)
-
-        final_video.write_videofile(
-            output_path,
-            fps=30,
-            codec='libx264',
-            audio_codec='aac',
-            preset='fast',  # Much faster than 'medium', minimal quality loss
-            threads=num_threads,
-            ffmpeg_params=[
-                '-tune', 'stillimage',  # Optimized for slideshow
-                '-movflags', '+faststart',  # Enable fast web playback
-            ],
-            logger=None  # Suppress MoviePy progress bars in worker
-        )
-
-        # Clean up
-        print(f"[{job_id}] Cleaning up clips...")
-        final_video.close()
-        for clip in clips:
-            try:
-                clip.close()
-            except:
-                pass
-
-        # Get file size
-        file_size = os.path.getsize(output_path) if os.path.exists(output_path) else 0
-
+        file_size = os.path.getsize(output_path)
         print(f"[{job_id}] [OK] Video generation complete! Size: {file_size} bytes")
 
-        result = {
+        update_progress(job_id, 'completed', 100, 'Video ready for download!')
+
+        return {
             'success': True,
             'video_id': job_id,
             'video_path': output_path,
@@ -312,9 +232,15 @@ def generate_video_job(job_id, session_id, audio_id, duration, transition, resol
             'message': 'Video generation complete!'
         }
 
-        update_progress(job_id, 'completed', 100, 'Video ready for download!')
-
-        return result
+    except subprocess.TimeoutExpired:
+        print(f"[{job_id}] [ERROR] FFmpeg timed out")
+        update_progress(job_id, 'error', 0, 'Video encoding timed out')
+        return {
+            'success': False,
+            'error': 'Video encoding timed out after 5 minutes',
+            'stage': 'error',
+            'progress': 0
+        }
 
     except Exception as e:
         error_msg = str(e)
