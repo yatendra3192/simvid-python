@@ -579,8 +579,12 @@ def download_youtube():
                     # Save trim info for later use
                     trim_info_file = os.path.join(app.config['AUDIO_FOLDER'], f"{audio_id}_trim.json")
                     with open(trim_info_file, 'w') as f:
-                        json.dump({'start': start_time, 'end': end_time}, f)
-
+                        json.dump({
+                            'start': start_time,
+                            'end': end_time,
+                            'video_id': info.get('id'),
+                            'title': title
+                        }, f)
                     # Calculate trimmed duration
                     if start_time is not None and end_time is not None:
                         duration = end_time - start_time
@@ -588,6 +592,14 @@ def download_youtube():
                         duration = end_time
                     elif start_time is not None:
                         duration = full_duration - start_time
+                else:
+                    # Save metadata even without trimming for YouTube thumbnail
+                    meta_file = os.path.join(app.config['AUDIO_FOLDER'], f"{audio_id}_trim.json")
+                    with open(meta_file, 'w') as f:
+                        json.dump({
+                            'video_id': info.get('id'),
+                            'title': title
+                        }, f)
 
                 return jsonify({
                     'success': True,
@@ -1331,9 +1343,20 @@ def admin_data():
                 audio_id = audio_file.rsplit('.', 1)[0]
                 size = os.path.getsize(audio_path)
 
-                # Check for trim info
-                trim_file = os.path.join(app.config['AUDIO_FOLDER'], f"{audio_id}_trim.json")
-                trimmed = os.path.exists(trim_file)
+                # Check for metadata/trim info file
+                meta_file = os.path.join(app.config['AUDIO_FOLDER'], f"{audio_id}_trim.json")
+                video_id = None
+                title = None
+                trimmed = False
+                if os.path.exists(meta_file):
+                    try:
+                        with open(meta_file, 'r') as f:
+                            meta_data = json.load(f)
+                            video_id = meta_data.get('video_id')
+                            title = meta_data.get('title')
+                            trimmed = 'start' in meta_data or 'end' in meta_data
+                    except:
+                        pass
 
                 # Try to get duration
                 duration = None
@@ -1350,9 +1373,11 @@ def admin_data():
                     'name': audio_file,
                     'size': size,
                     'created': os.path.getctime(audio_path),
-                    'source': 'YouTube' if audio_id else 'Upload',
+                    'source': 'youtube' if video_id else 'upload',
                     'duration': duration,
-                    'trimmed': trimmed
+                    'trimmed': trimmed,
+                    'video_id': video_id,
+                    'title': title
                 })
                 stats['audio_files'] += 1
                 stats['total_size'] += size
