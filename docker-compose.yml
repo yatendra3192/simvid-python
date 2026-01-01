@@ -1,0 +1,167 @@
+version: '3.8'
+
+# Docker Compose configuration for handling 100s of concurrent users
+# This setup provides horizontal scaling with load balancing
+
+services:
+  # Redis for task queue and caching
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # PostgreSQL for persistent data
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: aiezzy
+      POSTGRES_USER: aiezzy
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aiezzy"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Web application (scale this for more concurrent HTTP requests)
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://aiezzy:${DB_PASSWORD:-changeme}@postgres:5432/aiezzy
+      - USE_CELERY=true
+      - WEB_WORKERS=4
+      - FLASK_ENV=production
+    volumes:
+      - uploads:/app/uploads
+      - output:/app/output
+      - audio:/app/audio
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    command: >
+      gunicorn app:app
+      --bind 0.0.0.0:5000
+      --workers 4
+      --threads 2
+      --worker-class gthread
+      --timeout 300
+      --keep-alive 5
+      --max-requests 1000
+      --access-logfile -
+    deploy:
+      replicas: 2  # Run 2 web instances behind load balancer
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+  # Celery video workers (scale this for more concurrent video processing)
+  video-worker:
+    build: .
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://aiezzy:${DB_PASSWORD:-changeme}@postgres:5432/aiezzy
+    volumes:
+      - uploads:/app/uploads
+      - output:/app/output
+      - audio:/app/audio
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: >
+      celery -A celery_app worker
+      --queues=video
+      --concurrency=2
+      --loglevel=info
+      --max-tasks-per-child=10
+    deploy:
+      replicas: 3  # Run 3 video workers (can process 6 videos concurrently)
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+
+  # Celery audio workers
+  audio-worker:
+    build: .
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - audio:/app/audio
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: >
+      celery -A celery_app worker
+      --queues=audio
+      --concurrency=3
+      --loglevel=info
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # Celery Beat for scheduled tasks
+  beat:
+    build: .
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: celery -A celery_app beat --loglevel=info
+    deploy:
+      replicas: 1  # Only one beat scheduler
+
+  # Flower for monitoring (optional, but useful for production)
+  flower:
+    build: .
+    ports:
+      - "5555:5555"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - FLOWER_BASIC_AUTH=${FLOWER_USER:-admin}:${FLOWER_PASSWORD:-admin}
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: celery -A celery_app flower --port=5555
+
+  # Nginx load balancer (for high traffic)
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - web
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+
+volumes:
+  redis_data:
+  postgres_data:
+  uploads:
+  output:
+  audio:

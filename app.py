@@ -54,13 +54,26 @@ else:
 # Global dictionary to store progress for each video generation job
 video_progress = {}
 
-# Initialize rate limiter
+# Initialize rate limiter with Redis for distributed rate limiting
+# This is CRITICAL for handling 100s of users across multiple instances
+rate_limit_storage = redis_url if redis_url else "memory://"
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"],
-    storage_uri="memory://",  # Use Redis in production for distributed systems
+    default_limits=["500 per day", "100 per hour"],  # Increased limits for scale
+    storage_uri=rate_limit_storage,
 )
+
+# Celery integration (optional - falls back to RQ if not configured)
+USE_CELERY = os.environ.get('USE_CELERY', 'false').lower() == 'true'
+celery_app = None
+if USE_CELERY:
+    try:
+        from celery_app import celery_app
+        print("Celery task queue enabled for high-throughput processing")
+    except ImportError:
+        USE_CELERY = False
+        print("Celery not available, falling back to RQ")
 
 # Configure logging
 if not os.path.exists('logs'):
@@ -238,6 +251,17 @@ def clean_old_files():
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/health')
+def health_check():
+    """Health check endpoint for load balancers and container orchestration"""
+    health_status = {
+        'status': 'healthy',
+        'redis': redis_conn is not None,
+        'celery': USE_CELERY,
+        'queue': video_queue is not None
+    }
+    return jsonify(health_status)
 
 @app.route('/progress/<job_id>')
 def get_progress(job_id):
@@ -627,27 +651,50 @@ def generate_video():
     if not image_files:
         return jsonify({'error': 'No images found in session'}), 400
 
-    # If Redis Queue is available, enqueue the job
-    if video_queue:
+    # Priority 1: Use Celery if enabled (best for high-scale deployments)
+    if USE_CELERY:
         try:
-            # Import the task function
-            from tasks import generate_video_job
+            from celery_tasks import generate_video_task
 
-            # Enqueue the job with the generated job_id
-            job = video_queue.enqueue(
-                generate_video_job,
-                job_id, session_id, audio_id, duration_per_image, transition, resolution,
-                job_id=job_id,  # Set RQ job_id to match our job_id
-                job_timeout='30m',  # 30 minutes max
-                result_ttl=3600  # Keep results for 1 hour
+            # Queue the task with Celery for distributed processing
+            result = generate_video_task.apply_async(
+                args=[job_id, session_id, audio_id, duration_per_image, transition, resolution],
+                task_id=job_id,
+                queue='video'
             )
 
-            app.logger.info(f"✅ Enqueued video generation job: {job_id} (RQ Job: {job.id})")
+            app.logger.info(f"Celery task queued: {job_id}")
 
             return jsonify({
                 'success': True,
                 'job_id': job_id,
-                'message': 'Video generation started in background',
+                'message': 'Video generation queued (Celery)',
+                'status_url': f'/job_status/{job_id}',
+                'estimated_time': f'{len(image_files) * 2} seconds'
+            })
+
+        except Exception as e:
+            app.logger.warning(f"Celery queue failed: {e}, falling back to RQ")
+
+    # Priority 2: Use RQ if Redis is available
+    if video_queue:
+        try:
+            from tasks import generate_video_job
+
+            job = video_queue.enqueue(
+                generate_video_job,
+                job_id, session_id, audio_id, duration_per_image, transition, resolution,
+                job_id=job_id,
+                job_timeout='30m',
+                result_ttl=3600
+            )
+
+            app.logger.info(f"RQ job enqueued: {job_id}")
+
+            return jsonify({
+                'success': True,
+                'job_id': job_id,
+                'message': 'Video generation started (RQ)',
                 'status_url': f'/job_status/{job_id}',
                 'estimated_time': f'{len(image_files) * 2} seconds'
             })
@@ -656,10 +703,9 @@ def generate_video():
             app.logger.error(f"Failed to enqueue job: {e}")
             return jsonify({'error': f'Failed to start video generation: {str(e)}'}), 500
 
-    # Fallback to synchronous processing if Redis is not available
-    else:
-        app.logger.warning("⚠️ Redis not available, using synchronous processing")
-        return generate_video_sync(job_id, session_id, audio_id, duration_per_image, transition, resolution)
+    # Priority 3: Synchronous processing (not recommended for production)
+    app.logger.warning("No queue available, using synchronous processing")
+    return generate_video_sync(job_id, session_id, audio_id, duration_per_image, transition, resolution)
 
 
 def generate_video_sync(job_id, session_id, audio_id, duration_per_image, transition, resolution):
