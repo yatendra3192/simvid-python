@@ -640,7 +640,7 @@ def download_youtube():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/generate_video', methods=['POST'])
-@limiter.limit("5 per hour")  # Limit video generation to prevent abuse
+@limiter.limit("30 per hour")  # Allow more video generations
 def generate_video():
     """
     Generate slideshow video from images with optional audio
