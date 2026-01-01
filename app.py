@@ -1777,6 +1777,51 @@ def admin_cleanup():
         'threshold_hours': hours
     })
 
+@app.route('/admin/settings/auto-cleanup', methods=['GET', 'POST'])
+def admin_auto_cleanup_settings():
+    """Get or set auto cleanup settings"""
+    token = request.headers.get('Authorization')
+    if not verify_admin_token(token):
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    SETTINGS_KEY = 'admin:auto_cleanup_settings'
+
+    if request.method == 'GET':
+        # Get current settings
+        try:
+            if redis_client:
+                settings = redis_client.get(SETTINGS_KEY)
+                if settings:
+                    import json
+                    return jsonify(json.loads(settings))
+        except Exception as e:
+            app.logger.warning(f"Failed to get auto cleanup settings: {e}")
+        # Default: disabled
+        return jsonify({'enabled': False, 'interval': 24})
+
+    elif request.method == 'POST':
+        # Save settings
+        data = request.get_json() or {}
+        enabled = data.get('enabled', False)
+        interval = data.get('interval', 24)
+
+        settings = {
+            'enabled': enabled,
+            'interval': interval
+        }
+
+        try:
+            if redis_client:
+                import json
+                redis_client.set(SETTINGS_KEY, json.dumps(settings))
+                app.logger.info(f"Auto cleanup settings saved: enabled={enabled}, interval={interval}h")
+                return jsonify({'success': True, **settings})
+        except Exception as e:
+            app.logger.error(f"Failed to save auto cleanup settings: {e}")
+            return jsonify({'error': 'Failed to save settings'}), 500
+
+        return jsonify({'success': True, **settings})
+
 
 @app.route('/admin/analytics')
 def admin_analytics():

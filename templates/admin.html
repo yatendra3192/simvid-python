@@ -303,6 +303,17 @@
         .settings-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
         .select-box { padding: 10px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-tertiary); color: var(--text-primary); font-size: 14px; }
 
+        /* Toggle Switch */
+        .toggle-switch { position: relative; display: inline-block; width: 50px; height: 26px; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider { position: absolute; cursor: pointer; inset: 0; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 26px; transition: 0.3s; }
+        .toggle-slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.3s; }
+        .toggle-switch input:checked + .toggle-slider { background: var(--success); border-color: var(--success); }
+        .toggle-switch input:checked + .toggle-slider:before { transform: translateX(24px); }
+        .status-badge { padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+        .status-badge.off { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+        .status-badge.on { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+
         /* Empty State */
         .empty-state { text-align: center; padding: 60px 20px; color: var(--text-secondary); }
         .empty-state .icon { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
@@ -449,7 +460,34 @@
                 </div>
 
                 <div class="settings-card">
-                    <h3>Cleanup Files</h3>
+                    <h3>Auto Cleanup</h3>
+                    <p>Automatically delete old files to save storage space.</p>
+                    <div class="settings-row" style="margin-bottom: 12px;">
+                        <span>Enable auto cleanup:</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="autoCleanupToggle" onchange="toggleAutoCleanup()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span id="autoCleanupStatus" class="status-badge off">OFF</span>
+                    </div>
+                    <div id="autoCleanupSettings" style="display: none;">
+                        <div class="settings-row">
+                            <span>Delete files older than:</span>
+                            <select class="select-box" id="autoCleanupInterval" onchange="saveAutoCleanupSettings()">
+                                <option value="6">6 hours</option>
+                                <option value="24" selected>24 hours</option>
+                                <option value="72">3 days</option>
+                                <option value="168">7 days</option>
+                            </select>
+                        </div>
+                        <p style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">
+                            ⚠️ Auto cleanup runs periodically and deletes old uploads, audio, and videos.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="settings-card">
+                    <h3>Manual Cleanup</h3>
                     <p>Delete files older than the specified time. This cannot be undone.</p>
                     <div class="settings-row">
                         <span>Delete files older than:</span>
@@ -536,6 +574,7 @@
             document.getElementById('loginPage').style.display = 'none';
             document.getElementById('dashboard').style.display = 'block';
             loadData();
+            loadAutoCleanupSettings();
         }
 
         async function login() {
@@ -871,6 +910,63 @@
             await fetch(`/admin/delete/audio/${id}`, { method: 'DELETE', headers: { 'Authorization': token() } });
             toast('Audio deleted', 'success');
             loadData();
+        }
+
+        // Auto Cleanup Functions
+        async function loadAutoCleanupSettings() {
+            try {
+                const res = await fetch('/admin/settings/auto-cleanup', {
+                    headers: { 'Authorization': token() }
+                });
+                if (res.ok) {
+                    const settings = await res.json();
+                    const toggle = document.getElementById('autoCleanupToggle');
+                    const status = document.getElementById('autoCleanupStatus');
+                    const settingsDiv = document.getElementById('autoCleanupSettings');
+                    const interval = document.getElementById('autoCleanupInterval');
+
+                    toggle.checked = settings.enabled;
+                    status.textContent = settings.enabled ? 'ON' : 'OFF';
+                    status.className = `status-badge ${settings.enabled ? 'on' : 'off'}`;
+                    settingsDiv.style.display = settings.enabled ? 'block' : 'none';
+                    if (settings.interval) interval.value = settings.interval;
+                }
+            } catch (e) {
+                console.error('Failed to load auto cleanup settings:', e);
+            }
+        }
+
+        async function toggleAutoCleanup() {
+            const toggle = document.getElementById('autoCleanupToggle');
+            const status = document.getElementById('autoCleanupStatus');
+            const settingsDiv = document.getElementById('autoCleanupSettings');
+            const enabled = toggle.checked;
+
+            status.textContent = enabled ? 'ON' : 'OFF';
+            status.className = `status-badge ${enabled ? 'on' : 'off'}`;
+            settingsDiv.style.display = enabled ? 'block' : 'none';
+
+            await saveAutoCleanupSettings();
+        }
+
+        async function saveAutoCleanupSettings() {
+            const enabled = document.getElementById('autoCleanupToggle').checked;
+            const interval = document.getElementById('autoCleanupInterval').value;
+
+            try {
+                const res = await fetch('/admin/settings/auto-cleanup', {
+                    method: 'POST',
+                    headers: { 'Authorization': token(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled, interval: parseInt(interval) })
+                });
+                if (res.ok) {
+                    toast(enabled ? 'Auto cleanup enabled' : 'Auto cleanup disabled', 'success');
+                } else {
+                    toast('Failed to save settings', 'error');
+                }
+            } catch (e) {
+                toast('Failed to save settings', 'error');
+            }
         }
 
         async function cleanupFiles() {
