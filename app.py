@@ -1548,6 +1548,7 @@ def admin_projects():
 
 
 @app.route('/admin/preview/image/<session_id>/<filename>')
+@limiter.exempt  # No rate limit for admin previews
 def admin_preview_image(session_id, filename):
     """Serve image preview for admin"""
     # Accept token from header or query parameter
@@ -1616,6 +1617,7 @@ def admin_preview_audio(audio_id):
     return 'Not found', 404
 
 @app.route('/admin/preview/video/<video_id>')
+@limiter.exempt  # No rate limit for admin previews
 def admin_preview_video(video_id):
     """Serve video preview for admin"""
     # Accept token from header, query parameter, or cookie
