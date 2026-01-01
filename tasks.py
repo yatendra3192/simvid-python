@@ -153,7 +153,9 @@ def generate_video_job(job_id, session_id, audio_id, duration, transition, resol
         update_progress(job_id, 'encoding', 60, 'Encoding video with FFmpeg...')
 
         # Build FFmpeg command - optimized for speed
-        # IMPORTANT: Order matters! All inputs first, then filters, then output
+        # Use filter_complex with explicit stream mapping when audio is present
+        video_filter = f'scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black'
+
         ffmpeg_cmd = [
             ffmpeg_path, '-y',
             '-f', 'concat',
@@ -161,27 +163,33 @@ def generate_video_job(job_id, session_id, audio_id, duration, transition, resol
             '-i', concat_file,
         ]
 
-        # Add audio input BEFORE filters
         if audio_path:
+            # With audio: use filter_complex for explicit stream selection
             ffmpeg_cmd.extend(['-i', audio_path])
-
-        # Now add video filter and encoding options
-        ffmpeg_cmd.extend([
-            '-vf', f'scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black',
-            '-c:v', 'libx264',
-            '-preset', 'ultrafast',  # Maximum speed
-            '-tune', 'stillimage',   # Optimized for slideshow
-            '-pix_fmt', 'yuv420p',
-            '-movflags', '+faststart',
-            '-r', '30',
-        ])
-
-        # Add audio encoding options if audio present
-        if audio_path:
             ffmpeg_cmd.extend([
+                '-filter_complex', f'[0:v]{video_filter}[outv]',
+                '-map', '[outv]',
+                '-map', '1:a',
+                '-c:v', 'libx264',
+                '-preset', 'ultrafast',
+                '-tune', 'stillimage',
+                '-pix_fmt', 'yuv420p',
+                '-movflags', '+faststart',
+                '-r', '30',
                 '-c:a', 'aac',
                 '-b:a', '128k',
                 '-shortest',
+            ])
+        else:
+            # No audio: simple -vf filter is fine
+            ffmpeg_cmd.extend([
+                '-vf', video_filter,
+                '-c:v', 'libx264',
+                '-preset', 'ultrafast',
+                '-tune', 'stillimage',
+                '-pix_fmt', 'yuv420p',
+                '-movflags', '+faststart',
+                '-r', '30',
             ])
 
         ffmpeg_cmd.append(output_path)

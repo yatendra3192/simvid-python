@@ -630,7 +630,7 @@
                     const displayImages = images.slice(0, visibleCount);
                     const thumbsHtml = displayImages.map((img, i) => `
                         <div class="image-thumb" onclick="previewImage('${p.session_id}', '${img.name}')">
-                            <img src="/admin/preview/image/${img.session_id}/${img.name}?token=${token()}" alt="">
+                            <img src="/admin/preview/image/${img.session_id}/${img.name}?token=${token()}" alt="" loading="lazy">
                         </div>
                     `).join('');
 
@@ -678,7 +678,7 @@
                     <div class="project-card" data-id="${p.id}" data-images='${JSON.stringify(images)}' data-session="${p.session_id || ''}">
                         <div class="project-header">
                             <div class="project-video">
-                                <video controls preload="auto" playsinline>
+                                <video controls preload="metadata" playsinline>
                                     <source src="${videoUrl}" type="video/mp4">
                                 </video>
                             </div>
@@ -726,7 +726,7 @@
             const grid = document.getElementById('allImagesGrid');
             grid.innerHTML = images.map(img => `
                 <div class="thumb" onclick="previewImage('${sessionId}', '${img.name}')">
-                    <img src="/admin/preview/image/${img.session_id}/${img.name}?token=${token()}" alt="">
+                    <img src="/admin/preview/image/${img.session_id}/${img.name}?token=${token()}" alt="" loading="lazy">
                 </div>
             `).join('');
 
@@ -752,11 +752,11 @@
                     previewHtml = `<div class="image-grid-preview">`;
                     displayImages.forEach((img, i) => {
                         if (i < 5) {
-                            previewHtml += `<img src="/admin/preview/image/${s.session_id}/${img.name}?token=${token()}" alt="">`;
+                            previewHtml += `<img src="/admin/preview/image/${s.session_id}/${img.name}?token=${token()}" alt="" loading="lazy">`;
                         } else if (i === 5 && images.length > 6) {
                             previewHtml += `<div class="more-overlay">+${images.length - 5}</div>`;
                         } else {
-                            previewHtml += `<img src="/admin/preview/image/${s.session_id}/${img.name}?token=${token()}" alt="">`;
+                            previewHtml += `<img src="/admin/preview/image/${s.session_id}/${img.name}?token=${token()}" alt="" loading="lazy">`;
                         }
                     });
                     previewHtml += `</div>`;
