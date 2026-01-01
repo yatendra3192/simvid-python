@@ -1510,10 +1510,12 @@ def admin_projects():
                 except Exception as e:
                     app.logger.warning(f"Could not load metadata for {video_id}: {e}")
             else:
-                # No metadata - use video creation time
-                project['created'] = datetime.fromtimestamp(os.path.getctime(video_path)).isoformat()
+                # No metadata - skip this project (it's an orphan video)
+                continue
 
-            projects.append(project)
+            # Only add projects that have valid session data
+            if project.get('session_id') and len(project.get('images', [])) > 0:
+                projects.append(project)
 
     # Sort by creation time (newest first)
     projects.sort(key=lambda p: p.get('created', ''), reverse=True)
@@ -1620,12 +1622,12 @@ def admin_preview_video(video_id):
         except Exception:
             return 'Error validating path', 500
 
-        # Return with proper MIME type and headers for browser playback
-        response = send_file(video_path)
-        response.headers['Accept-Ranges'] = 'bytes'
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        response.headers['Content-Type'] = 'video/mp4'
-        return response
+        # Return with proper MIME type and support for Range requests (video seeking)
+        return send_file(
+            video_path,
+            mimetype='video/mp4',
+            conditional=True  # Enables Range request support for video seeking
+        )
 
     return 'Not found', 404
 
