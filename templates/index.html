@@ -913,12 +913,14 @@
                         showStatus('progressStatus', 'info', statusMsg);
                         updateProgress(20);
                     } else {
-                        showStatus('progressStatus', 'warning', 'Could not download audio. Continuing without music...');
+                        // Show helpful error with suggestion to upload audio file
+                        showYouTubeError();
                         updateProgress(20);
                     }
                 } catch (error) {
                     console.error('YouTube download error:', error);
-                    showStatus('progressStatus', 'warning', 'Audio download failed. Continuing without music...');
+                    // Show helpful error with suggestion to upload audio file
+                    showYouTubeError();
                     updateProgress(20);
                 }
             } else {
@@ -1023,6 +1025,23 @@
         // Utility functions
         function updateProgress(percent) {
             document.getElementById('progressBar').style.width = percent + '%';
+        }
+
+        function showYouTubeError() {
+            // Show a helpful error message suggesting alternatives
+            const element = document.getElementById('progressStatus');
+            element.className = 'status warning';
+            element.innerHTML = `
+                <div style="margin-bottom: 8px;">
+                    <strong>⚠️ YouTube download failed</strong>
+                </div>
+                <div style="font-size: 13px; line-height: 1.5;">
+                    YouTube is blocking the download. Your video will be created without music.
+                    <br><br>
+                    <strong>Tip:</strong> Use "Upload Audio File" to add your own music file (MP3, WAV, etc.)
+                </div>
+            `;
+            element.style.display = 'block';
         }
 
         function showStatus(elementId, type, message) {
