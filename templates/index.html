@@ -737,6 +737,12 @@
             const formData = new FormData();
             let validFiles = 0;
 
+            // If we already have a session, send it so images are added to it
+            if (sessionId) {
+                formData.append('session_id', sessionId);
+                console.log('Adding to existing session:', sessionId);
+            }
+
             // Show skeleton loaders immediately
             const skeletons = [];
             for (let file of files) {
@@ -795,14 +801,10 @@
                 const data = await response.json();
                 if (data.success) {
                     sessionId = data.session_id;
-                    // Append new images to existing array
-                    if (uploadedImages && uploadedImages.length > 0) {
-                        uploadedImages = uploadedImages.concat(data.images);
-                    } else {
-                        uploadedImages = data.images;
-                    }
+                    // Append new images to existing array instead of replacing
+                    uploadedImages = uploadedImages.concat(data.images);
                     console.log('Upload successful:', data);
-                    console.log('Total images:', uploadedImages.length);
+                    console.log('Total images in session:', data.total_count);
                 }
             } catch (error) {
                 console.error('Upload error:', error);

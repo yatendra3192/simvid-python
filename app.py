@@ -395,13 +395,37 @@ def upload_images():
 
     files = request.files.getlist('images')
 
-    # Limit number of images
-    if len(files) > 50:
-        return jsonify({'error': 'Maximum 50 images allowed per upload'}), 400
+    # Check if we should add to an existing session
+    existing_session_id = request.form.get('session_id')
 
-    session_id = str(uuid.uuid4())
-    session_folder = os.path.join(app.config['UPLOAD_FOLDER'], session_id)
-    os.makedirs(session_folder, exist_ok=True)
+    # Validate existing session if provided
+    if existing_session_id:
+        if not is_valid_uuid(existing_session_id):
+            return jsonify({'error': 'Invalid session ID format'}), 400
+
+        existing_folder = os.path.join(app.config['UPLOAD_FOLDER'], existing_session_id)
+        if os.path.exists(existing_folder) and os.path.isdir(existing_folder):
+            # Use existing session
+            session_id = existing_session_id
+            session_folder = existing_folder
+            # Count existing images
+            existing_images = len([f for f in os.listdir(session_folder) if allowed_file(f, ALLOWED_IMAGE_EXTENSIONS)])
+        else:
+            # Session not found, create new
+            session_id = str(uuid.uuid4())
+            session_folder = os.path.join(app.config['UPLOAD_FOLDER'], session_id)
+            os.makedirs(session_folder, exist_ok=True)
+            existing_images = 0
+    else:
+        # Create new session
+        session_id = str(uuid.uuid4())
+        session_folder = os.path.join(app.config['UPLOAD_FOLDER'], session_id)
+        os.makedirs(session_folder, exist_ok=True)
+        existing_images = 0
+
+    # Limit total number of images (existing + new)
+    if existing_images + len(files) > 50:
+        return jsonify({'error': f'Maximum 50 images allowed per session. You have {existing_images} and are trying to add {len(files)}.'}), 400
 
     uploaded_files = []
     total_original_size = 0
@@ -435,11 +459,15 @@ def upload_images():
     if total_original_size > 0:
         reduction_percent = ((total_original_size - total_optimized_size) / total_original_size) * 100
 
+    # Get total count of all images in session (existing + newly uploaded)
+    total_images_in_session = len([f for f in os.listdir(session_folder) if allowed_file(f, ALLOWED_IMAGE_EXTENSIONS)])
+
     return jsonify({
         'success': True,
         'session_id': session_id,
         'images': uploaded_files,
         'count': len(uploaded_files),
+        'total_count': total_images_in_session,
         'optimization': {
             'original_size': total_original_size,
             'optimized_size': total_optimized_size,
