@@ -9,9 +9,13 @@ import uuid
 import shutil
 import tempfile
 import logging
+import requests
+import random
+import re
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from datetime import datetime
+from urllib.parse import urlparse, parse_qs
 
 from flask import Flask, render_template, request, jsonify, send_file, url_for, send_from_directory, Response
 from flask_cors import CORS
@@ -514,10 +518,193 @@ def upload_audio():
 
     return jsonify({'error': 'Invalid audio file'}), 400
 
+# ==================== YOUTUBE DOWNLOAD HELPERS ====================
+# Multi-fallback system: Invidious API -> yt-dlp
+
+# List of public Invidious instances (rotated for reliability)
+# Updated periodically - check https://api.invidious.io/ for current list
+INVIDIOUS_INSTANCES = [
+    'https://inv.perditum.com',        # Verified working
+    'https://invidious.nerdvpn.de',
+    'https://inv.tux.pizza',
+    'https://invidious.protokolla.fi',
+    'https://yt.drgnz.club',
+    'https://invidious.io.lol',
+]
+
+def extract_video_id(url):
+    """Extract YouTube video ID from various URL formats"""
+    # Handle youtu.be short URLs
+    if 'youtu.be' in url:
+        path = urlparse(url).path
+        return path.strip('/')
+
+    # Handle youtube.com URLs
+    parsed = urlparse(url)
+    if 'youtube.com' in parsed.netloc:
+        # Standard watch URL
+        if 'v' in parse_qs(parsed.query):
+            return parse_qs(parsed.query)['v'][0]
+        # Embedded or shorts URL
+        path_parts = parsed.path.split('/')
+        for i, part in enumerate(path_parts):
+            if part in ['embed', 'v', 'shorts'] and i + 1 < len(path_parts):
+                return path_parts[i + 1]
+
+    # Try regex as fallback
+    patterns = [
+        r'(?:v=|\/)([0-9A-Za-z_-]{11}).*',
+        r'([0-9A-Za-z_-]{11})',
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, url)
+        if match:
+            return match.group(1)
+
+    return None
+
+def download_via_invidious(video_id, output_path):
+    """
+    Try to download audio via Invidious API instances.
+    Returns (success, audio_file_path, title, duration) or (False, None, None, None)
+    """
+    # Shuffle instances to distribute load
+    instances = INVIDIOUS_INSTANCES.copy()
+    random.shuffle(instances)
+
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    }
+
+    for instance in instances:
+        try:
+            # Get video info from Invidious API
+            api_url = f"{instance}/api/v1/videos/{video_id}"
+            print(f"[Invidious] Trying {instance}...")
+
+            response = requests.get(api_url, headers=headers, timeout=10)
+            if response.status_code != 200:
+                print(f"[Invidious] {instance} returned status {response.status_code}")
+                continue
+
+            data = response.json()
+            title = data.get('title', 'Unknown')
+            duration = data.get('lengthSeconds', 0)
+
+            # Find best audio format from adaptiveFormats
+            audio_formats = [
+                f for f in data.get('adaptiveFormats', [])
+                if f.get('type', '').startswith('audio/')
+            ]
+
+            if not audio_formats:
+                print(f"[Invidious] {instance} - No audio formats found")
+                continue
+
+            # Sort by bitrate (highest first)
+            audio_formats.sort(key=lambda x: int(x.get('bitrate', 0)), reverse=True)
+            best_audio = audio_formats[0]
+            audio_url = best_audio.get('url')
+
+            if not audio_url:
+                print(f"[Invidious] {instance} - No audio URL in format")
+                continue
+
+            # Download the audio file
+            print(f"[Invidious] Downloading audio from {instance}...")
+            audio_response = requests.get(audio_url, headers=headers, timeout=60, stream=True)
+
+            if audio_response.status_code != 200:
+                print(f"[Invidious] Audio download failed with status {audio_response.status_code}")
+                continue
+
+            # Determine file extension from content type
+            content_type = audio_response.headers.get('Content-Type', 'audio/webm')
+            ext = 'webm'
+            if 'mp4' in content_type or 'm4a' in content_type:
+                ext = 'm4a'
+            elif 'opus' in content_type:
+                ext = 'opus'
+            elif 'mp3' in content_type:
+                ext = 'mp3'
+
+            audio_file_path = f"{output_path}.{ext}"
+
+            # Save audio file
+            with open(audio_file_path, 'wb') as f:
+                for chunk in audio_response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+
+            file_size = os.path.getsize(audio_file_path)
+            print(f"[Invidious] SUCCESS! Downloaded {file_size} bytes from {instance}")
+
+            return True, audio_file_path, title, duration
+
+        except requests.exceptions.Timeout:
+            print(f"[Invidious] {instance} timed out")
+            continue
+        except requests.exceptions.RequestException as e:
+            print(f"[Invidious] {instance} request error: {e}")
+            continue
+        except Exception as e:
+            print(f"[Invidious] {instance} error: {e}")
+            continue
+
+    print("[Invidious] All instances failed")
+    return False, None, None, None
+
+def download_via_ytdlp(url, output_path):
+    """
+    Fallback: Try to download via yt-dlp.
+    Returns (success, audio_file_path, title, duration) or (False, None, None, None)
+    """
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'outtmpl': f"{output_path}.%(ext)s",
+        'quiet': True,
+        'no_warnings': True,
+        'extractaudio': True,
+        'retries': 3,
+        'fragment_retries': 3,
+        'skip_unavailable_fragments': True,
+        'ignoreerrors': False,
+        'geo_bypass': True,
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9',
+        },
+    }
+
+    try:
+        print("[yt-dlp] Attempting download...")
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            title = info.get('title', 'Unknown')
+            duration = info.get('duration', 0)
+
+            # Find the downloaded file
+            audio_files = list(Path(app.config['AUDIO_FOLDER']).glob(f"{os.path.basename(output_path)}.*"))
+            if audio_files:
+                audio_file_path = str(audio_files[0])
+                print(f"[yt-dlp] SUCCESS! Downloaded: {audio_file_path}")
+                return True, audio_file_path, title, duration
+
+            print("[yt-dlp] Download completed but file not found")
+            return False, None, None, None
+
+    except Exception as e:
+        print(f"[yt-dlp] Error: {e}")
+        return False, None, None, None
+
+
 @app.route('/download_youtube', methods=['POST'])
 @limiter.limit("10 per hour")  # Limit YouTube downloads
 def download_youtube():
-    """Download audio from YouTube URL with optional time trimming"""
+    """
+    Download audio from YouTube URL with multi-fallback system:
+    1. Try Invidious API (multiple instances)
+    2. Fall back to yt-dlp
+    """
     data = request.get_json()
     url = data.get('url')
     start_time = data.get('start_time')  # in seconds
@@ -530,15 +717,20 @@ def download_youtube():
     if not url.startswith(('http://', 'https://')):
         return jsonify({'error': 'Invalid URL format'}), 400
 
-    # Validate YouTube URL
+    # Validate YouTube URL and extract video ID
     valid_domains = ['youtube.com', 'youtu.be', 'www.youtube.com', 'm.youtube.com']
-    from urllib.parse import urlparse
     try:
         parsed_url = urlparse(url)
         if not any(domain in parsed_url.netloc for domain in valid_domains):
             return jsonify({'error': 'Only YouTube URLs are supported'}), 400
     except Exception:
         return jsonify({'error': 'Invalid URL'}), 400
+
+    video_id = extract_video_id(url)
+    if not video_id:
+        return jsonify({'error': 'Could not extract video ID from URL'}), 400
+
+    print(f"[YouTube] Processing video ID: {video_id}")
 
     # Validate time parameters if provided
     if start_time is not None:
@@ -564,111 +756,68 @@ def download_youtube():
     audio_id = str(uuid.uuid4())
     output_path = os.path.join(app.config['AUDIO_FOLDER'], audio_id)
 
-    # Build download options - optimized for datacenter/server environments
-    # IMPORTANT: Do NOT specify extractor_args - let yt-dlp use its defaults
-    # (android_sdkless, web_safari) which work without authentication
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'outtmpl': f"{output_path}_full.%(ext)s",
-        'quiet': True,
-        'no_warnings': True,
-        'extractaudio': True,
-        # Reliability improvements
-        'retries': 5,
-        'fragment_retries': 5,
-        'skip_unavailable_fragments': True,
-        'ignoreerrors': False,
-        # Help bypass geo-restrictions
-        'geo_bypass': True,
-        # Use a realistic browser user agent to reduce bot detection
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept-Language': 'en-US,en;q=0.9',
-        },
-    }
+    # ========== MULTI-FALLBACK DOWNLOAD ==========
+    success = False
+    audio_file = None
+    title = "Unknown"
+    duration = 0
 
-    # Add download sections if times are specified
-    # Note: yt-dlp supports download_sections for newer versions
+    # Method 1: Try Invidious API (distributed instances, less likely to be blocked)
+    print("[YouTube] Trying Invidious API...")
+    success, audio_file, title, duration = download_via_invidious(video_id, output_path)
+
+    # Method 2: Fall back to yt-dlp
+    if not success:
+        print("[YouTube] Invidious failed, trying yt-dlp...")
+        success, audio_file, title, duration = download_via_ytdlp(url, output_path)
+
+    if not success or not audio_file:
+        return jsonify({'error': 'YouTube download failed. Please try uploading an audio file instead.'}), 500
+
+    # ========== SUCCESS - Process the downloaded audio ==========
+    full_duration = duration
+
+    # Format time info for response if times were specified
+    time_info = ""
     if start_time is not None or end_time is not None:
-        sections = []
+        start_str = f"{int(start_time//60)}:{int(start_time%60):02d}" if start_time else "0:00"
+        end_str = f"{int(end_time//60)}:{int(end_time%60):02d}" if end_time else f"{int(full_duration//60)}:{int(full_duration%60):02d}"
+        time_info = f" ({start_str} - {end_str})"
+
+        # Save trim info for later use during video generation
+        trim_info_file = os.path.join(app.config['AUDIO_FOLDER'], f"{audio_id}_trim.json")
+        with open(trim_info_file, 'w') as f:
+            json.dump({
+                'start': start_time,
+                'end': end_time,
+                'video_id': video_id,
+                'title': title
+            }, f)
+
+        # Calculate trimmed duration
         if start_time is not None and end_time is not None:
-            # Download specific section
-            ydl_opts['download_ranges'] = lambda info_dict, ydl: [{'start_time': start_time, 'end_time': end_time}]
-            # Store the times for later trimming
-            trim_needed = True
-            trim_start = start_time
-            trim_end = end_time
-        else:
-            trim_needed = False
-            trim_start = None
-            trim_end = None
+            duration = end_time - start_time
+        elif end_time is not None:
+            duration = end_time
+        elif start_time is not None:
+            duration = full_duration - start_time
     else:
-        trim_needed = False
-        trim_start = None
-        trim_end = None
+        # Save metadata even without trimming
+        meta_file = os.path.join(app.config['AUDIO_FOLDER'], f"{audio_id}_trim.json")
+        with open(meta_file, 'w') as f:
+            json.dump({
+                'video_id': video_id,
+                'title': title
+            }, f)
 
-    # For now, download full and trim after (more reliable)
-    ydl_opts['outtmpl'] = f"{output_path}.%(ext)s"
-
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            title = info.get('title', 'Unknown')
-            full_duration = info.get('duration', 0)
-
-            # Find the downloaded file
-            audio_files = list(Path(app.config['AUDIO_FOLDER']).glob(f"{audio_id}.*"))
-            if audio_files:
-                audio_file = str(audio_files[0])
-                duration = full_duration
-
-                # Format time info for response if times were specified
-                time_info = ""
-                if start_time is not None or end_time is not None:
-                    # Store trimming info in filename for later use during video generation
-                    # Since MoviePy audio trimming has issues, we'll handle it during video generation
-                    start_str = f"{int(start_time//60)}:{int(start_time%60):02d}" if start_time else "0:00"
-                    end_str = f"{int(end_time//60)}:{int(end_time%60):02d}" if end_time else f"{int(full_duration//60)}:{int(full_duration%60):02d}"
-                    time_info = f" ({start_str} - {end_str})"
-
-                    # Save trim info for later use
-                    trim_info_file = os.path.join(app.config['AUDIO_FOLDER'], f"{audio_id}_trim.json")
-                    with open(trim_info_file, 'w') as f:
-                        json.dump({
-                            'start': start_time,
-                            'end': end_time,
-                            'video_id': info.get('id'),
-                            'title': title
-                        }, f)
-                    # Calculate trimmed duration
-                    if start_time is not None and end_time is not None:
-                        duration = end_time - start_time
-                    elif end_time is not None:
-                        duration = end_time
-                    elif start_time is not None:
-                        duration = full_duration - start_time
-                else:
-                    # Save metadata even without trimming for YouTube thumbnail
-                    meta_file = os.path.join(app.config['AUDIO_FOLDER'], f"{audio_id}_trim.json")
-                    with open(meta_file, 'w') as f:
-                        json.dump({
-                            'video_id': info.get('id'),
-                            'title': title
-                        }, f)
-
-                return jsonify({
-                    'success': True,
-                    'audio_id': audio_id,
-                    'title': title + time_info,
-                    'duration': duration,
-                    'filename': os.path.basename(audio_file),
-                    'trimmed': (start_time is not None or end_time is not None)
-                })
-            else:
-                return jsonify({'error': 'Audio file not created'}), 500
-
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    return jsonify({
+        'success': True,
+        'audio_id': audio_id,
+        'title': title + time_info,
+        'duration': duration,
+        'filename': os.path.basename(audio_file),
+        'trimmed': (start_time is not None or end_time is not None)
+    })
 
 @app.route('/generate_video', methods=['POST'])
 @limiter.limit("30 per hour")  # Allow more video generations
