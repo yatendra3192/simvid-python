@@ -431,13 +431,19 @@ def upload_images():
     total_original_size = 0
     total_optimized_size = 0
 
+    # Start sequence number from existing count to preserve order across uploads
+    sequence_number = existing_images
+
     for file in files:
         if file and allowed_file(file.filename, ALLOWED_IMAGE_EXTENSIONS):
             filename = secure_filename(file.filename)
 
             # Change extension to .jpg (since we're converting to JPEG)
             base_name = os.path.splitext(filename)[0]
-            filename = f"{base_name}.jpg"
+
+            # Add sequence number prefix to preserve upload order (e.g., 001_filename.jpg)
+            sequence_number += 1
+            filename = f"{sequence_number:03d}_{base_name}.jpg"
 
             filepath = os.path.join(session_folder, filename)
 
