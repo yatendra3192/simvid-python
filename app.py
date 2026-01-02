@@ -564,30 +564,20 @@ def download_youtube():
     audio_id = str(uuid.uuid4())
     output_path = os.path.join(app.config['AUDIO_FOLDER'], audio_id)
 
-    # Build download options - optimized for speed and reliability
+    # Build download options - simplified for latest yt-dlp compatibility
+    # Note: Removed custom extractor_args as they cause issues with YouTube's new API
+    # Let yt-dlp use its default client selection (android_sdkless, web_safari)
     ydl_opts = {
-        'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best',
+        'format': 'bestaudio/best',
         'outtmpl': f"{output_path}_full.%(ext)s",  # Download full first
         'quiet': True,
         'no_warnings': True,
         'extractaudio': True,
-        # Speed optimizations
-        'concurrent_fragment_downloads': 4,
-        'buffersize': 1024 * 16,
         # Reliability improvements
         'retries': 3,
         'fragment_retries': 3,
         'skip_unavailable_fragments': True,
         'ignoreerrors': False,
-        # Fix for YouTube extraction issues
-        'extractor_args': {'youtube': {'player_client': ['android', 'web']}},
-        # Avoid throttling
-        'sleep_interval': 0,
-        'max_sleep_interval': 0,
-        # Better extraction
-        'extract_flat': False,
-        'youtube_include_dash_manifest': False,
-        'youtube_include_hls_manifest': False,
     }
 
     # Add download sections if times are specified
