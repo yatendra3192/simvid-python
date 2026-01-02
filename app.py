@@ -564,20 +564,27 @@ def download_youtube():
     audio_id = str(uuid.uuid4())
     output_path = os.path.join(app.config['AUDIO_FOLDER'], audio_id)
 
-    # Build download options - simplified for latest yt-dlp compatibility
-    # Note: Removed custom extractor_args as they cause issues with YouTube's new API
-    # Let yt-dlp use its default client selection (android_sdkless, web_safari)
+    # Build download options - optimized for datacenter/server environments
+    # IMPORTANT: Do NOT specify extractor_args - let yt-dlp use its defaults
+    # (android_sdkless, web_safari) which work without authentication
     ydl_opts = {
         'format': 'bestaudio/best',
-        'outtmpl': f"{output_path}_full.%(ext)s",  # Download full first
+        'outtmpl': f"{output_path}_full.%(ext)s",
         'quiet': True,
         'no_warnings': True,
         'extractaudio': True,
         # Reliability improvements
-        'retries': 3,
-        'fragment_retries': 3,
+        'retries': 5,
+        'fragment_retries': 5,
         'skip_unavailable_fragments': True,
         'ignoreerrors': False,
+        # Help bypass geo-restrictions
+        'geo_bypass': True,
+        # Use a realistic browser user agent to reduce bot detection
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9',
+        },
     }
 
     # Add download sections if times are specified
